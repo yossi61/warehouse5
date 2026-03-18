@@ -106,7 +106,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v22</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v25</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -551,12 +551,24 @@ async function load() {
         saveLocal();
         lastSyncHash = JSON.stringify(mainDataOnly());
       } else if(localTime > cloudTime) {
-        // המקומי חדש יותר – דוחפים לענן
-        const p = JSON.stringify(mainDataOnly());
-        fetch(SYNC_URL + '?data=' + encodeURIComponent(p) + '&t=' + Date.now())
-          .then(r => r.json())
-          .then(() => { lastSyncHash = p; })
-          .catch(() => {});
+        // המקומי חדש יותר – דוחפים לענן (עם await)
+        try {
+          const p = JSON.stringify(mainDataOnly());
+          const pr = await fetch(SYNC_URL + '?data=' + encodeURIComponent(p) + '&t=' + Date.now());
+          const presult = await pr.json();
+          if(presult && presult.status === 'ok') { lastSyncHash = p; }
+        } catch(e2) {}
+      }
+    } else {
+      // הענן ריק או לא תקין – אם יש נתונים מקומיים, דחוף אותם לענן (עם await)
+      const localHasData = (data.products || []).length > 0;
+      if(localHasData) {
+        try {
+          const p = JSON.stringify(mainDataOnly());
+          const pr = await fetch(SYNC_URL + '?data=' + encodeURIComponent(p) + '&t=' + Date.now());
+          const presult = await pr.json();
+          if(presult && presult.status === 'ok') { lastSyncHash = p; }
+        } catch(e2) {}
       }
     }
     setSyncUI('synced');
@@ -584,15 +596,22 @@ async function pollCloud() {
         saveLocal();
         lastSyncHash = JSON.stringify(mainDataOnly());
         renderAll();
-        setSyncUI('synced');
       }
     }
-  } catch(e){}
+    setSyncUI('synced');
+  } catch(e){ setSyncUI(navigator.onLine ? 'error' : 'offline'); }
 }
 
 function startPolling() {
   if(pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(pollCloud, 15000);
+  // סנכרון מיידי כשחוזרים לאפליקציה (מסך נדלק, חזרה מטאב אחר)
+  document.addEventListener('visibilitychange', function() {
+    if(document.visibilityState === 'visible') {
+      _lastSaveTime = 0; // מאפשר polling מיידי
+      pollCloud();
+    }
+  });
 }
 
 function manualSync() { load(); }
