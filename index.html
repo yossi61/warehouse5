@@ -2,6 +2,9 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -103,7 +106,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v20</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -531,8 +534,10 @@ async function load() {
     if(cd) {
       const cloudTime = cd.lastModified || 0;
       const localTime = data.lastModified || 0;
-      if(cloudTime > localTime) {
-        // הענן חדש יותר – משתמשים בו
+      const localEmpty = (data.products || []).length === 0;
+      const cloudHasData = (cd.products || []).length > 0;
+      if(cloudTime > localTime || (localEmpty && cloudHasData)) {
+        // הענן חדש יותר או שאין לנו נתונים מקומיים – משתמשים בענן
         data = cd;
         applyImages(localImgs);
         saveLocal();
