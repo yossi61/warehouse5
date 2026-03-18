@@ -106,7 +106,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v20</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v22</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -502,16 +502,24 @@ function setSyncUI(state) {
   txt.textContent = msgs[state]||state;
 }
 
-function save() {
+async function save() {
   data.lastModified = Date.now();
   _lastSaveTime = Date.now();
   saveLocal();
   setSyncUI('syncing');
-  // שולחים רק נתונים ללא תמונות — תמונות נשמרות ב-localStorage בלבד
-  fetch(SYNC_URL, {method:'POST', body: JSON.stringify(mainDataOnly())})
-    .then(r => r.json())
-    .then(() => { lastSyncHash = JSON.stringify(mainDataOnly()); setSyncUI('synced'); })
-    .catch(() => setSyncUI(navigator.onLine ? 'error' : 'offline'));
+  const payload = JSON.stringify(mainDataOnly());
+  try {
+    const res = await fetch(SYNC_URL + '?data=' + encodeURIComponent(payload) + '&t=' + Date.now());
+    const result = await res.json();
+    if(result && result.status === 'ok') {
+      lastSyncHash = payload;
+      setSyncUI('synced');
+    } else {
+      setSyncUI('error');
+    }
+  } catch(e) {
+    setSyncUI(navigator.onLine ? 'error' : 'offline');
+  }
 }
 
 function parseCloudData(cloud) {
@@ -544,9 +552,10 @@ async function load() {
         lastSyncHash = JSON.stringify(mainDataOnly());
       } else if(localTime > cloudTime) {
         // המקומי חדש יותר – דוחפים לענן
-        fetch(SYNC_URL, {method:'POST', body: JSON.stringify(mainDataOnly())})
+        const p = JSON.stringify(mainDataOnly());
+        fetch(SYNC_URL + '?data=' + encodeURIComponent(p) + '&t=' + Date.now())
           .then(r => r.json())
-          .then(() => { lastSyncHash = JSON.stringify(mainDataOnly()); })
+          .then(() => { lastSyncHash = p; })
           .catch(() => {});
       }
     }
