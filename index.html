@@ -10,9 +10,9 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#222;direction:rtl;min-height:100vh}
-.mobile-tabs{display:flex;background:#2c3e50;position:sticky;top:0;z-index:100;overflow-x:auto;scrollbar-width:none}
+.mobile-tabs{display:flex;justify-content:flex-start;background:#2c3e50;position:sticky;top:0;z-index:100;overflow-x:auto;scrollbar-width:none}
 .mobile-tabs::-webkit-scrollbar{display:none}
-.mobile-tab{flex:1;min-width:55px;padding:8px 4px 6px;background:none;border:none;color:#aaa;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all 0.2s;white-space:nowrap}
+.mobile-tab{flex:0 0 auto;padding:8px 14px 6px;background:none;border:none;color:#aaa;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all 0.2s;white-space:nowrap}
 .mobile-tab .icon{font-size:18px}
 .mobile-tab.active{color:#fff;border-bottom:3px solid #3498db}
 .mobile-tab:hover{color:#ddd}
@@ -52,7 +52,6 @@ tr:hover td{background:#f9fbfd}
 .badge-ok{background:#e0f5e9;color:#27ae60}
 .badge-zero{background:#ffe0e0;color:#e74c3c}
 .sync-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;font-size:13px;margin-bottom:10px}
-#syncBar{margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)}
 .sync-bar.synced{background:#e0f5e9;color:#27ae60}
 .sync-bar.syncing{background:#fff3cd;color:#f39c12}
 .sync-bar.error{background:#ffe0e0;color:#e74c3c}
@@ -103,11 +102,9 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
   <button class="mobile-tab" id="mtab-settings" onclick="showPage('settings',this)"><span class="icon">⚙️</span>הגדרות</button>
 </div>
 
-<!-- SYNC BAR - תמיד נראה -->
-<div id="syncBar" class="sync-bar synced"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span></div>
-
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
+  <div id="syncBar" class="sync-bar synced"><span class="sync-dot"></span><span id="syncText">מסונכרן</span></div>
   <div class="stat-grid">
     <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">סה"כ מוצרים</div></div>
     <div class="stat-card"><div class="stat-num" id="stat-low" style="color:#e74c3c">0</div><div class="stat-label">מלאי נמוך</div></div>
@@ -149,7 +146,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
             <th onclick="sortProducts('name')"><span class="sort-arrow" id="sarr-name"></span>שם</th>
             <th onclick="sortProducts('category')"><span class="sort-arrow" id="sarr-category"></span>קטג'</th>
             <th onclick="sortProducts('quantity')" style="text-align:center"><span class="sort-arrow" id="sarr-quantity"></span>מלאי</th>
-            <th style="text-align:center;cursor:pointer" onclick="sortProducts('status')"><span class="sort-arrow" id="sarr-status"></span>סטטוס</th>
+            <th style="text-align:center">סטטוס</th>
             <th style="text-align:center">🛒</th>
             <th style="white-space:normal;text-align:center;min-width:44px">כמות<br>לקנייה</th>
             <th style="text-align:center">✏️</th>
@@ -257,7 +254,6 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
           <option value="אחר">אחר</option>
           <option value="אפיה">אפיה</option>
           <option value="בשר">בשר</option>
-          <option value="חטיפים">חטיפים</option>
           <option value="דברי חלב">דברי חלב</option>
           <option value="הגיינה">הגיינה</option>
           <option value="ירקות">ירקות</option>
@@ -490,10 +486,7 @@ function applyImages(imgs) {
 }
 
 function saveLocal() {
-  try {
-    localStorage.setItem('warehouse_data', JSON.stringify(data));
-    localStorage.setItem('warehouse_saved_at', Date.now());
-  } catch(e){}
+  try { localStorage.setItem('warehouse_data', JSON.stringify(data)); } catch(e){}
 }
 
 function setSyncUI(state) {
@@ -504,19 +497,14 @@ function setSyncUI(state) {
   txt.textContent = msgs[state]||state;
 }
 
-function pushToCloud() {
+function save() {
+  _lastSaveTime = Date.now();
+  saveLocal();
   setSyncUI('syncing');
-  const payload = JSON.stringify(mainDataOnly());
-  fetch(SYNC_URL, {method:'POST', mode:'no-cors', body: payload})
+  // שולחים רק נתונים ללא תמונות — תמונות נשמרות ב-localStorage בלבד
+  fetch(SYNC_URL, {method:'POST', mode:'no-cors', body: JSON.stringify(mainDataOnly())})
     .then(() => { lastSyncHash = JSON.stringify(mainDataOnly()); setSyncUI('synced'); })
     .catch(() => setSyncUI(navigator.onLine ? 'error' : 'offline'));
-}
-
-function save() {
-  data.lastModified = Date.now();
-  saveLocal();
-  _lastSaveTime = Date.now();
-  pushToCloud();
 }
 
 function parseCloudData(cloud) {
@@ -538,10 +526,8 @@ async function load() {
     const cd = parseCloudData(cloud);
     if(cd) {
       if(Date.now() - _lastSaveTime < 20000) {
-        // שמרנו לאחרונה – שומרים מקומי ודוחפים לענן
-        pushToCloud();
+        // שמרנו זה עתה – לא מדרסים את הנתונים המקומיים
       } else {
-        // לוקחים מהענן
         data = cd;
         applyImages(localImgs);
         saveLocal();
@@ -563,14 +549,13 @@ async function pollCloud() {
     const cloud = await res.json();
     const cd = parseCloudData(cloud);
     if(cd) {
-      const newHash = JSON.stringify(cd);
-      if(newHash !== lastSyncHash) {
-        // הענן השתנה – מכשיר אחר עדכן (דליה/יוסי)
+      const hash = JSON.stringify(cd);
+      if(hash !== lastSyncHash) {
         const localImgs = extractImages();
         data = cd;
         applyImages(localImgs);
         saveLocal();
-        lastSyncHash = newHash;
+        lastSyncHash = hash;
         renderAll();
         setSyncUI('synced');
       }
@@ -580,10 +565,10 @@ async function pollCloud() {
 
 function startPolling() {
   if(pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(pollCloud, 10000);
+  pollTimer = setInterval(pollCloud, 15000);
 }
 
-function manualSync() { _lastSaveTime = 0; load(); }
+function manualSync() { load(); }
 
 // ── Page navigation ─────────────────────────────────────────────────────
 function showPage(id, btn) {
@@ -658,16 +643,11 @@ function renderProducts() {
     return matchSearch && matchCat && matchShop;
   });
   prods.sort((a,b)=>{
-    if(sortField === 'status') {
-      const av = a.quantity <= 1 ? 0 : 1;
-      const bv = b.quantity <= 1 ? 0 : 1;
-      return sortAsc ? av - bv : bv - av;
-    }
     let av=a[sortField]??'', bv=b[sortField]??'';
     if(typeof av==='number') return sortAsc?av-bv:bv-av;
     return sortAsc?String(av).localeCompare(String(bv),'he'):String(bv).localeCompare(String(av),'he');
   });
-  ['name','category','quantity','status'].forEach(f=>{
+  ['name','category','quantity','minQuantity','price'].forEach(f=>{
     const el=document.getElementById('sarr-'+f);
     if(el) el.textContent = sortField===f ? (sortAsc?'▲':'▼') : '';
   });
@@ -797,7 +777,7 @@ function openEditProduct(id) {
   document.getElementById('modalProductTitle').textContent = 'ערוך מוצר';
   document.getElementById('editProductId').value = id;
   document.getElementById('pName').value = p.name||'';
-  const knownCats = ['אחר','אפיה','בשר','חטיפים','דברי חלב','הגיינה','ירקות','מנות קשות','ניקיון','שימורים','שתייה','תבלינים'];
+  const knownCats = ['אחר','אפיה','בשר','דברי חלב','הגיינה','ירקות','מנות קשות','ניקיון','שימורים','שתייה','תבלינים'];
   if(knownCats.includes(p.category)) {
     document.getElementById('pCat').value = p.category;
     document.getElementById('otherCatGroup').style.display = 'none';
