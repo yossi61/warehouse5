@@ -106,7 +106,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v26</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v27</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -455,7 +455,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <script>
-const SYNC_URL = 'https://script.google.com/macros/s/AKfycbz7Xuj5IPFAfU68fbUh1tzMuz0ukCktAseGPaydNzdNMhbXk9PXyAsH0TqYNeaDvye6/exec';
+const FIREBASE_URL = 'https://warehouse-sync-fcfd6-default-rtdb.firebaseio.com/warehouse.json';
 
 let data = {
   products:[],movements:[],personal:[],
@@ -503,17 +503,13 @@ function setSyncUI(state) {
 }
 
 async function pushToCloud(payload) {
-  // נסה POST רגיל – נתונים עוברים בגוף הבקשה (ללא הגבלת אורך URL)
   try {
-    const res = await fetch(SYNC_URL, {method:'POST', body: payload});
-    const result = await res.json();
-    if(result && result.status === 'ok') return true;
-  } catch(e) {}
-  // גיבוי: GET עם פרמטר (לנתונים קטנים)
-  try {
-    const res = await fetch(SYNC_URL + '?data=' + encodeURIComponent(payload) + '&t=' + Date.now());
-    const result = await res.json();
-    if(result && result.status === 'ok') return true;
+    const res = await fetch(FIREBASE_URL, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: payload
+    });
+    if(res.ok) return true;
   } catch(e) {}
   return false;
 }
@@ -530,10 +526,6 @@ async function save() {
 }
 
 function parseCloudData(cloud) {
-  // תומך בשני פורמטים: ישן {products:[...]} וחדש {main:"...", images:{}}
-  if(cloud && cloud.main) {
-    try { const cd = JSON.parse(cloud.main); if(cd && cd.products) return cd; } catch(e){}
-  }
   if(cloud && cloud.products) return cloud;
   return null;
 }
@@ -543,7 +535,7 @@ async function load() {
   if(saved) { try { data = JSON.parse(saved); } catch(e){} }
   const localImgs = extractImages();
   try {
-    const res = await fetch(SYNC_URL + '?t=' + Date.now());
+    const res = await fetch(FIREBASE_URL + '?t=' + Date.now());
     const cloud = await res.json();
     const cd = parseCloudData(cloud);
     if(cd) {
@@ -552,19 +544,14 @@ async function load() {
       const localEmpty = (data.products || []).length === 0;
       const cloudHasData = (cd.products || []).length > 0;
       if(cloudTime > localTime || (localEmpty && cloudHasData)) {
-        // הענן חדש יותר או שאין לנו נתונים מקומיים – משתמשים בענן
-        data = cd;
-        applyImages(localImgs);
-        saveLocal();
+        data = cd; applyImages(localImgs); saveLocal();
         lastSyncHash = JSON.stringify(mainDataOnly());
       } else if(localTime > cloudTime) {
-        // המקומי חדש יותר – דוחפים לענן
         const p = JSON.stringify(mainDataOnly());
         const ok = await pushToCloud(p);
         if(ok) lastSyncHash = p;
       }
     } else {
-      // הענן ריק – אם יש נתונים מקומיים, דחוף אותם לענן
       const localHasData = (data.products || []).length > 0;
       if(localHasData) {
         const p = JSON.stringify(mainDataOnly());
@@ -583,18 +570,15 @@ async function load() {
 async function pollCloud() {
   if(Date.now() - _lastSaveTime < 20000) return;
   try {
-    const res = await fetch(SYNC_URL + '?t=' + Date.now());
+    const res = await fetch(FIREBASE_URL + '?t=' + Date.now());
     const cloud = await res.json();
     const cd = parseCloudData(cloud);
     if(cd) {
       const cloudTime = cd.lastModified || 0;
       const localTime = data.lastModified || 0;
       if(cloudTime > localTime) {
-        // הענן חדש יותר – מכשיר אחר עדכן
         const localImgs = extractImages();
-        data = cd;
-        applyImages(localImgs);
-        saveLocal();
+        data = cd; applyImages(localImgs); saveLocal();
         lastSyncHash = JSON.stringify(mainDataOnly());
         renderAll();
       }
