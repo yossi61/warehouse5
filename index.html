@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '36';
+  var VER = '45';
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
     location.replace(location.pathname + '?_v=' + VER);
@@ -122,7 +122,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v36</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v45</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -132,11 +132,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
     <div class="stat-card"><div class="stat-num" id="stat-zero" style="color:#888">0</div><div class="stat-label">חסר במלאי</div></div>
     <div class="stat-card"><div class="stat-num" id="stat-val" style="color:#27ae60">0</div><div class="stat-label">ערך מלאי ₪</div></div>
   </div>
-  <div id="lowAlerts"></div>
-  <div class="card">
-    <h3>📦 מוצרים אחרונים שנוספו</h3>
-    <div id="recentProducts"></div>
-  </div>
+  <div id="categoryTiles" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:4px"></div>
 </div>
 
 <!-- PRODUCTS -->
@@ -255,6 +251,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
       <button class="btn btn-primary" onclick="openAddRecipe()">+ הוסף מתכון</button>
     </div>
     <div class="filter-row" style="margin-bottom:12px">
+      <input type="text" id="recipeSearch" placeholder="🔍 חיפוש מתכון..." oninput="renderRecipes()" style="flex:1;min-width:120px;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:14px">
       <select id="recipeCatFilter" onchange="renderRecipes()" style="padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:14px">
         <option value="">כל הקטגוריות</option>
         <option value="לחמים">לחמים</option>
@@ -290,9 +287,14 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
         <option value="פוקצ׳ה">פוקצ׳ה</option>
         <option value="קינוחים">קינוחים</option>
         <option value="מאכלים">מאכלים</option>
+        <option value="חטיפים">חטיפים</option>
+        <option value="ממתקים">ממתקים</option>
         <option value="__other__">אחר...</option>
       </select>
-      <input type="text" id="recipeCategoryCustom" placeholder="הקלד שם קטגוריה..." style="display:none;width:100%;padding:9px 12px;border:1px solid #3498db;border-radius:8px;font-size:14px;margin-top:6px">
+      <div id="recipeCategoryCustomWrapper" style="display:none;margin-top:8px;background:#eaf4ff;border-radius:10px;padding:10px 12px">
+        <label style="font-size:12px;color:#2980b9;font-weight:700;display:block;margin-bottom:4px">✏️ הקלד שם קטגוריה חדשה:</label>
+        <input type="text" id="recipeCategoryCustom" placeholder="לדוגמה: פסטות, מרקים..." style="width:100%;padding:10px 12px;border:2px solid #3498db;border-radius:8px;font-size:15px;background:#fff">
+      </div>
     </div>
     <div style="margin-bottom:16px">
       <label style="font-weight:600;font-size:14px;display:block;margin-bottom:4px">המתכון</label>
@@ -332,6 +334,49 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
   </div>
 </div>
 
+<!-- MODAL: קטגוריה חדשה למתכון -->
+<div id="customCatModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1200;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:340px">
+    <h3 style="color:#2c3e50;margin-bottom:16px;font-size:16px">קטגוריה חדשה</h3>
+    <input id="customCatInput" type="text" placeholder="שם הקטגוריה..." style="width:100%;padding:10px 12px;border:1.5px solid #3498db;border-radius:8px;font-size:15px;margin-bottom:16px" onkeydown="if(event.key==='Enter')confirmCustomCat()">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="cancelCustomCat()" style="background:#eee;color:#333">ביטול</button>
+      <button class="btn btn-primary" onclick="confirmCustomCat()">אישור</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: תצוגת קטגוריה מהדשבורד -->
+<div id="catViewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 id="catViewTitle" style="color:#2c3e50;margin:0"></h3>
+      <button onclick="closeCatView()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888">✕</button>
+    </div>
+    <div id="catViewList"></div>
+  </div>
+</div>
+
+<!-- MODAL: פעולה מהירה על מוצר -->
+<div id="quickActionModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1100;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;padding:22px;width:100%;max-width:340px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 id="qaProductName" style="color:#2c3e50;margin:0;font-size:16px"></h3>
+      <button onclick="closeQuickAction()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888">✕</button>
+    </div>
+    <div style="font-size:13px;color:#888;margin-bottom:16px">מלאי נוכחי: <strong id="qaCurrentQty" style="color:#2c3e50;font-size:18px"></strong></div>
+    <div style="margin-bottom:16px">
+      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:6px">🛒 קניתי — הוסף למלאי:</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="number" id="qaBuyQty" min="1" value="1" style="width:80px;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:16px;text-align:center">
+        <button class="btn btn-success" onclick="quickBuy()" style="flex:1">✓ עדכן קנייה</button>
+      </div>
+    </div>
+    <hr style="border-color:#eee;margin:12px 0">
+    <button class="btn" onclick="quickEdit()" style="width:100%;background:#f0f4f8;color:#2c3e50">✏️ עריכה מלאה</button>
+  </div>
+</div>
+
 <!-- SETTINGS -->
 <div id="page-settings" class="page">
   <div class="card">
@@ -357,22 +402,24 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
       <div class="form-group">
         <label>קטגוריה</label>
         <select id="pCat" onchange="checkOtherCat()">
-          <option value="אחר">אחר</option>
           <option value="אפיה">אפיה</option>
           <option value="בשר">בשר</option>
+          <option value="חטיפים">חטיפים</option>
           <option value="דברי חלב">דברי חלב</option>
           <option value="הגיינה">הגיינה</option>
           <option value="ירקות">ירקות</option>
+          <option value="ממתקים">ממתקים</option>
           <option value="מנות קשות">מנות קשות</option>
           <option value="ניקיון">ניקיון</option>
           <option value="שימורים">שימורים</option>
           <option value="שתייה">שתייה</option>
           <option value="תבלינים">תבלינים</option>
+          <option value="אחר">אחר...</option>
         </select>
       </div>
-      <div class="form-group" id="otherCatGroup" style="display:none">
-        <label>קטגוריה מותאמת</label>
-        <input type="text" id="pCatOther" placeholder="הכנס קטגוריה">
+      <div id="otherCatGroup" style="display:none;margin-top:4px;background:#eaf4ff;border-radius:10px;padding:10px 12px">
+        <label style="font-size:12px;color:#2980b9;font-weight:700;display:block;margin-bottom:4px">✏️ הקלד שם קטגוריה חדשה:</label>
+        <input type="text" id="pCatOther" placeholder="לדוגמה: פירות, לחמים..." style="width:100%;padding:10px 12px;border:2px solid #3498db;border-radius:8px;font-size:15px;background:#fff">
       </div>
     </div>
     <div class="form-group"><label>כמות במלאי</label><input type="number" id="pQty" value="0" min="0"></div>
@@ -739,7 +786,12 @@ function renderRecipes() {
       allCats.map(c=>`<option value="${c}"${c===prev?' selected':''}>${c}</option>`).join('');
   }
   const filter = currentFilter;
-  let list = (data.recipes||[]).filter(r => !filter || r.category === filter);
+  const search = ((document.getElementById('recipeSearch')||{}).value||'').toLowerCase();
+  let list = (data.recipes||[]).filter(r => {
+    const matchCat = !filter || r.category === filter;
+    const matchSearch = !search || r.name.toLowerCase().includes(search) || (r.category||'').toLowerCase().includes(search);
+    return matchCat && matchSearch;
+  });
   list = [...list].sort((a,b) => {
     const av = (a[recipeSortField]||'').localeCompare(b[recipeSortField]||'', 'he');
     return recipeSortAsc ? av : -av;
@@ -831,14 +883,32 @@ function editRecipeFromView() {
   if(r) openEditRecipe(r);
 }
 
+function confirmCustomCat() {
+  const val = document.getElementById('customCatInput').value.trim();
+  if(!val) { alert('נא להזין שם קטגוריה'); return; }
+  document.getElementById('recipeCategoryCustom').value = val;
+  document.getElementById('recipeCategoryCustom').style.display = 'none';
+  document.getElementById('customCatModal').style.display = 'none';
+}
+
+function cancelCustomCat() {
+  document.getElementById('customCatModal').style.display = 'none';
+  // חזור לבחירה הראשונה
+  document.getElementById('recipeCategory').value = 'לחמים';
+  document.getElementById('recipeCategoryCustom').style.display = 'none';
+  document.getElementById('recipeCategoryCustom').value = '';
+}
+
 function toggleCustomCategory() {
   const sel = document.getElementById('recipeCategory');
+  const wrapper = document.getElementById('recipeCategoryCustomWrapper');
   const customInput = document.getElementById('recipeCategoryCustom');
   if(sel.value === '__other__') {
-    customInput.style.display = 'block';
-    customInput.focus();
+    wrapper.style.display = 'block';
+    customInput.value = '';
+    setTimeout(()=>customInput.focus(), 50);
   } else {
-    customInput.style.display = 'none';
+    wrapper.style.display = 'none';
     customInput.value = '';
   }
 }
@@ -863,7 +933,7 @@ function openAddRecipe() {
   document.getElementById('recipeEditId').value = '';
   document.getElementById('recipeName').value = '';
   document.getElementById('recipeCategory').value = 'לחמים';
-  document.getElementById('recipeCategoryCustom').style.display = 'none';
+  document.getElementById('recipeCategoryCustomWrapper').style.display = 'none';
   document.getElementById('recipeCategoryCustom').value = '';
   document.getElementById('recipeContentEditor').innerHTML = '';
   document.getElementById('recipeModal').style.display = 'flex';
@@ -877,11 +947,11 @@ function openEditRecipe(r) {
   const knownValues = Array.from(sel.options).map(o=>o.value).filter(v=>v!=='__other__');
   if(knownValues.includes(r.category)) {
     sel.value = r.category;
-    document.getElementById('recipeCategoryCustom').style.display = 'none';
+    document.getElementById('recipeCategoryCustomWrapper').style.display = 'none';
     document.getElementById('recipeCategoryCustom').value = '';
   } else {
     sel.value = '__other__';
-    document.getElementById('recipeCategoryCustom').style.display = 'block';
+    document.getElementById('recipeCategoryCustomWrapper').style.display = 'block';
     document.getElementById('recipeCategoryCustom').value = r.category;
   }
   document.getElementById('recipeContentEditor').innerHTML = r.content || '';
@@ -939,7 +1009,7 @@ function renderAll() {
 
 function renderDashboard() {
   const prods = data.products||[];
-  const missing = prods.filter(p=>p.quantity<=1);
+  const missing = prods.filter(p=>p.quantity<=(p.minQuantity||1));
   const zero = prods.filter(p=>p.quantity<=0);
   const val = prods.reduce((s,p)=>s+(p.quantity||0)*(p.price||0),0);
   document.getElementById('stat-total').textContent = prods.length;
@@ -947,15 +1017,88 @@ function renderDashboard() {
   document.getElementById('stat-zero').textContent = zero.length;
   document.getElementById('stat-val').textContent = val.toFixed(0);
 
-  const alerts = document.getElementById('lowAlerts');
-  alerts.innerHTML = '';
-  if(missing.length>0) {
-    alerts.innerHTML = '<div class="low-alert">⚠️ מוצרים חסרים/נמוכים: '+missing.map(p=>'<strong>'+p.name+'</strong> ('+p.quantity+')').join(', ')+'</div>';
+
+  // חלוניות קטגוריות
+  const cats = [...new Set(prods.map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'he'));
+  const tilesEl = document.getElementById('categoryTiles');
+  if(tilesEl) {
+    tilesEl.innerHTML = cats.map(cat => {
+      const catProds = prods.filter(p=>p.category===cat);
+      const lowCount = catProds.filter(p=>p.quantity<=(p.minQuantity||1)).length;
+      const total = catProds.length;
+      const border = lowCount > 0 ? '#e74c3c' : '#27ae60';
+      const badge = lowCount > 0
+        ? `<span style="background:#e74c3c;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700">${lowCount} חסר</span>`
+        : `<span style="background:#27ae60;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700">תקין ✓</span>`;
+      return `<div data-cat="${cat.replace(/"/g,'&quot;')}" onclick="openCategoryView(this.dataset.cat)" style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;border-right:4px solid ${border};transition:transform 0.15s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+        <div style="font-weight:700;font-size:15px;color:#2c3e50;margin-bottom:8px">${cat}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:#888">${total} מוצרים</span>
+          ${badge}
+        </div>
+      </div>`;
+    }).join('');
   }
-  const recent = [...prods].reverse().slice(0,5);
-  document.getElementById('recentProducts').innerHTML = recent.length ?
-    recent.map(p=>`<div style="padding:6px 0;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between"><span>${p.name}</span><span style="color:#888;font-size:13px">${p.category||''} | ${p.quantity}</span></div>`).join('') :
-    '<p style="color:#aaa;font-size:13px">אין מוצרים עדיין</p>';
+}
+
+function openCategoryView(cat) {
+  const prods = (data.products||[]).filter(p=>p.category===cat);
+  // חסרים ראשונים לפי א"ב, אחר כך תקינים לפי א"ב
+  const missing = prods.filter(p=>p.quantity<=(p.minQuantity||1)).sort((a,b)=>a.name.localeCompare(b.name,'he'));
+  const ok = prods.filter(p=>p.quantity>(p.minQuantity||1)).sort((a,b)=>a.name.localeCompare(b.name,'he'));
+  const sorted = [...missing, ...ok];
+  document.getElementById('catViewTitle').textContent = cat + ' — ' + prods.length + ' מוצרים';
+  document.getElementById('catViewList').innerHTML = sorted.length ? sorted.map(p => {
+    const isLow = p.quantity <= (p.minQuantity||1);
+    return `<div onclick="openQuickAction(${p.id})" style="background:${isLow?'#fff0f0':'#fff'};border-radius:10px;padding:13px 16px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 5px rgba(0,0,0,0.07);border-right:4px solid ${isLow?'#e74c3c':'#ddd'}">
+      <span style="color:${isLow?'#e74c3c':'#2c3e50'};font-weight:${isLow?'700':'600'};font-size:15px">${p.name}</span>
+      <div style="text-align:left">
+        <span style="color:${isLow?'#e74c3c':'#27ae60'};font-size:20px;font-weight:700">${p.quantity}</span>
+        ${isLow?'<div style="font-size:10px;color:#e74c3c;text-align:center">חסר</div>':''}
+      </div>
+    </div>`;
+  }).join('') : '<p style="color:#aaa;text-align:center;padding:20px">אין מוצרים בקטגוריה זו</p>';
+  document.getElementById('catViewModal').style.display = 'flex';
+}
+
+function closeCatView() {
+  document.getElementById('catViewModal').style.display = 'none';
+}
+
+let _qaProductId = null;
+function openQuickAction(id) {
+  const p = (data.products||[]).find(x=>x.id===id);
+  if(!p) return;
+  _qaProductId = id;
+  document.getElementById('qaProductName').textContent = p.name;
+  document.getElementById('qaCurrentQty').textContent = p.quantity;
+  document.getElementById('qaBuyQty').value = 1;
+  document.getElementById('quickActionModal').style.display = 'flex';
+}
+
+function closeQuickAction() {
+  document.getElementById('quickActionModal').style.display = 'none';
+  _qaProductId = null;
+}
+
+function quickBuy() {
+  const p = (data.products||[]).find(x=>x.id===_qaProductId);
+  if(!p) return;
+  const qty = parseFloat(document.getElementById('qaBuyQty').value)||1;
+  p.quantity = (p.quantity||0) + qty;
+  if(!data.movements) data.movements = [];
+  const today = new Date().toLocaleDateString('he-IL');
+  data.movements.push({id: Date.now(), productId: p.id, type:'in', quantity:qty, date:today, note:'קנייה מהדשבורד'});
+  const cat = p.category;
+  closeQuickAction();
+  save().then(()=>{ renderDashboard(); setTimeout(()=>openCategoryView(cat),300); });
+}
+
+function quickEdit() {
+  const id = _qaProductId;
+  closeQuickAction();
+  closeCatView();
+  openEditProduct(id);
 }
 
 function populateCatFilter() {
@@ -1094,7 +1237,7 @@ function openAddProduct() {
   document.getElementById('modalProductTitle').textContent = 'הוסף מוצר';
   document.getElementById('editProductId').value = '';
   document.getElementById('pName').value = '';
-  document.getElementById('pCat').value = 'אחר';
+  document.getElementById('pCat').value = 'אפיה';
   document.getElementById('pCatOther').value = '';
   document.getElementById('otherCatGroup').style.display = 'none';
   document.getElementById('pQty').value = 0;
@@ -1116,14 +1259,14 @@ function openEditProduct(id) {
   document.getElementById('modalProductTitle').textContent = 'ערוך מוצר';
   document.getElementById('editProductId').value = id;
   document.getElementById('pName').value = p.name||'';
-  const knownCats = ['אחר','אפיה','בשר','דברי חלב','הגיינה','ירקות','מנות קשות','ניקיון','שימורים','שתייה','תבלינים'];
+  const knownCats = ['אפיה','בשר','חטיפים','דברי חלב','הגיינה','ירקות','ממתקים','מנות קשות','ניקיון','שימורים','שתייה','תבלינים'];
   if(knownCats.includes(p.category)) {
     document.getElementById('pCat').value = p.category;
     document.getElementById('otherCatGroup').style.display = 'none';
   } else {
     document.getElementById('pCat').value = 'אחר';
     document.getElementById('pCatOther').value = p.category||'';
-    document.getElementById('otherCatGroup').style.display = '';
+    document.getElementById('otherCatGroup').style.display = 'block';
   }
   document.getElementById('pQty').value = p.quantity||0;
   document.getElementById('pWithdraw').value = '';
@@ -1141,7 +1284,8 @@ function openEditProduct(id) {
 
 function checkOtherCat() {
   const v = document.getElementById('pCat').value;
-  document.getElementById('otherCatGroup').style.display = v==='אחר' ? '' : 'none';
+  document.getElementById('otherCatGroup').style.display = v==='אחר' ? 'block' : 'none';
+  if(v==='אחר') setTimeout(()=>document.getElementById('pCatOther').focus(), 50);
 }
 
 function saveProduct() {
