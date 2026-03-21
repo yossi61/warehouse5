@@ -5,6 +5,16 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<script>
+// כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
+(function(){
+  var VER = '36';
+  var p = location.search;
+  if(p.indexOf('_v='+VER) === -1) {
+    location.replace(location.pathname + '?_v=' + VER);
+  }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -37,6 +47,11 @@ h3{font-size:1rem;color:#2c3e50;margin-bottom:10px}
 input,select,textarea{width:100%;padding:9px 11px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit;direction:rtl;background:#fafafa;transition:border-color 0.2s}
 input:focus,select:focus,textarea:focus{outline:none;border-color:#3498db;background:#fff}
 textarea{resize:vertical;min-height:70px}
+#recipeContentEditor{min-height:200px;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit;direction:rtl;text-align:right;background:#fafafa;line-height:1.8;overflow-y:auto;outline:none;transition:border-color 0.2s}
+#recipeContentEditor:focus{border-color:#3498db;background:#fff}
+#recipeContentEditor:empty:before{content:attr(data-placeholder);color:#aaa;pointer-events:none}
+.recipe-toolbar button{padding:5px 11px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;transition:background 0.15s}
+.recipe-toolbar button:hover{background:#f0f4f8}
 .form-group{margin-bottom:12px}
 label{display:block;font-size:13px;font-weight:600;color:#555;margin-bottom:5px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -107,7 +122,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v34</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v36</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -281,7 +296,15 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
     </div>
     <div style="margin-bottom:16px">
       <label style="font-weight:600;font-size:14px;display:block;margin-bottom:4px">המתכון</label>
-      <textarea id="recipeContent" placeholder="הדבק או כתוב כאן את המתכון..." style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;min-height:200px;resize:vertical;direction:rtl"></textarea>
+      <div class="recipe-toolbar" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;padding:6px 8px;background:#f8f9fa;border-radius:8px;border:1px solid #eee">
+        <button type="button" onclick="recipeFormat('bold')" title="הדגשה" style="font-weight:bold;font-size:14px">ב</button>
+        <button type="button" onclick="recipeFormat('underline')" title="קו תחתון" style="text-decoration:underline;font-size:14px">ק</button>
+        <button type="button" onclick="recipeFormatSize('19px')" title="טקסט גדול" style="font-size:16px">A+</button>
+        <button type="button" onclick="recipeFormatSize('12px')" title="טקסט קטן" style="font-size:12px">A-</button>
+        <button type="button" onclick="recipeFormatSize('14px')" title="גודל רגיל" style="font-size:13px">Aרגיל</button>
+        <button type="button" onclick="recipeFormat('removeFormat')" title="נקה עיצוב" style="font-size:13px;color:#888">✕ נקה</button>
+      </div>
+      <div id="recipeContentEditor" contenteditable="true" data-placeholder="הדבק או כתוב כאן את המתכון..."></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="closeRecipeModal()" style="background:#eee;color:#333">ביטול</button>
@@ -292,7 +315,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 
 <!-- MODAL: תצוגת מתכון -->
 <div id="recipeViewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:16px">
-  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto">
+  <div style="background:#fff;border-radius:16px;padding:28px;width:100%;max-width:min(820px,95vw);max-height:92vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
       <div>
         <h3 id="viewRecipeName" style="color:#2c3e50;margin-bottom:4px"></h3>
@@ -301,7 +324,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
       <button onclick="closeRecipeView()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888">✕</button>
     </div>
     <hr style="margin:12px 0;border-color:#eee">
-    <pre id="viewRecipeContent" style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.7;color:#333;margin:0"></pre>
+    <div id="viewRecipeContent" style="white-space:pre-wrap;font-family:inherit;font-size:16px;line-height:1.9;color:#333;margin:0"></div>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="editRecipeFromView()" style="background:#f0f0f0;color:#333">✏️ ערוך</button>
       <button class="btn" onclick="closeRecipeView()" style="background:#eee;color:#333">סגור</button>
@@ -763,9 +786,25 @@ function onRecipeCheck(checkbox, id) {
   }
 }
 
-function linkifyText(text) {
-  const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#3498db;word-break:break-all">$1</a>');
+function linkifyText(html) {
+  // הפעל linkify רק על text nodes, לא על תגיות קיימות
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  function walkNodes(node) {
+    if(node.nodeType === 3) {
+      const text = node.textContent;
+      if(/(https?:\/\/[^\s]+)/.test(text)) {
+        const span = document.createElement('span');
+        span.innerHTML = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" style="color:#3498db;word-break:break-all">$1</a>');
+        node.parentNode.replaceChild(span, node);
+      }
+    } else if(node.nodeType === 1 && node.tagName !== 'A') {
+      Array.from(node.childNodes).forEach(walkNodes);
+    }
+  }
+  Array.from(tmp.childNodes).forEach(walkNodes);
+  return tmp.innerHTML;
 }
 
 function openEditRecipeById(id) {
@@ -804,6 +843,21 @@ function toggleCustomCategory() {
   }
 }
 
+function recipeFormat(cmd) {
+  document.getElementById('recipeContentEditor').focus();
+  document.execCommand(cmd, false, null);
+}
+function recipeFormatSize(size) {
+  document.getElementById('recipeContentEditor').focus();
+  document.execCommand('fontSize', false, '7');
+  document.getElementById('recipeContentEditor').querySelectorAll('font[size="7"]').forEach(el => {
+    const span = document.createElement('span');
+    span.style.fontSize = size;
+    span.innerHTML = el.innerHTML;
+    el.parentNode.replaceChild(span, el);
+  });
+}
+
 function openAddRecipe() {
   document.getElementById('recipeModalTitle').textContent = 'הוסף מתכון';
   document.getElementById('recipeEditId').value = '';
@@ -811,7 +865,7 @@ function openAddRecipe() {
   document.getElementById('recipeCategory').value = 'לחמים';
   document.getElementById('recipeCategoryCustom').style.display = 'none';
   document.getElementById('recipeCategoryCustom').value = '';
-  document.getElementById('recipeContent').value = '';
+  document.getElementById('recipeContentEditor').innerHTML = '';
   document.getElementById('recipeModal').style.display = 'flex';
 }
 
@@ -830,7 +884,7 @@ function openEditRecipe(r) {
     document.getElementById('recipeCategoryCustom').style.display = 'block';
     document.getElementById('recipeCategoryCustom').value = r.category;
   }
-  document.getElementById('recipeContent').value = r.content;
+  document.getElementById('recipeContentEditor').innerHTML = r.content || '';
   document.getElementById('recipeModal').style.display = 'flex';
 }
 
@@ -844,7 +898,7 @@ function saveRecipe() {
   const category = selVal === '__other__'
     ? document.getElementById('recipeCategoryCustom').value.trim()
     : selVal;
-  const content = document.getElementById('recipeContent').value.trim();
+  const content = document.getElementById('recipeContentEditor').innerHTML.trim();
   if(!name) { alert('נא להזין שם מתכון'); return; }
   if(!category) { alert('נא להזין שם קטגוריה'); return; }
   if(!content) { alert('נא להזין את המתכון'); return; }
