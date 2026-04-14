@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '46';
+  var VER = '48';
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
     location.replace(location.pathname + '?_v=' + VER);
@@ -107,6 +107,9 @@ tr:hover td{background:#f9fbfd}
 .sync-note{font-size:11px;color:#27ae60;text-align:center;margin-top:4px}
 tr.shopping-row td{color:#2980b9;font-weight:700;font-size:15px;}
 tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !important;}
+.cat-chip{padding:5px 11px;border-radius:16px;border:1.5px solid #ddd;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap}
+.cat-chip:hover{border-color:#3498db;color:#3498db}
+.cat-chip.active{background:#3498db;color:#fff;border-color:#3498db}
 </style>
 </head>
 <body>
@@ -122,7 +125,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v46</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v48</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -147,15 +150,13 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
     </div>
     <div class="filter-row">
       <input type="text" id="prodSearch" placeholder="🔍 חיפוש..." oninput="renderProducts()" style="flex:1;min-width:100px">
-      <select id="prodCatFilter" onchange="renderProducts()">
-        <option value="">כל הקטגוריות</option>
-      </select>
       <select id="prodShopFilter" onchange="renderProducts()">
         <option value="">הכל</option>
         <option value="shopping">לקנייה ✓</option>
       </select>
       <button class="btn btn-sm btn-danger" onclick="clearShoppingList()" title="נקה רשימת קניות">🗑️ נקה</button>
     </div>
+    <div id="catChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
     <div style="overflow-x:auto">
       <table id="prodTable">
         <thead>
@@ -261,6 +262,12 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
         <option value="פיצות">פיצות</option>
         <option value="פוקצ׳ה">פוקצ׳ה</option>
         <option value="קינוחים">קינוחים</option>
+        <option value="עוגיות">עוגיות</option>
+        <option value="ריבות">ריבות</option>
+        <option value="לחמניות">לחמניות</option>
+        <option value="חלות">חלות</option>
+        <option value="פיתות">פיתות</option>
+        <option value="פסח">פסח</option>
       </select>
     </div>
     <div id="recipesList"></div>
@@ -289,6 +296,12 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
         <option value="מאכלים">מאכלים</option>
         <option value="חטיפים">חטיפים</option>
         <option value="ממתקים">ממתקים</option>
+        <option value="עוגיות">עוגיות</option>
+        <option value="ריבות">ריבות</option>
+        <option value="לחמניות">לחמניות</option>
+        <option value="חלות">חלות</option>
+        <option value="פיתות">פיתות</option>
+        <option value="פסח">פסח</option>
         <option value="__other__">אחר...</option>
       </select>
       <div id="recipeCategoryCustomWrapper" style="display:none;margin-top:8px;background:#eaf4ff;border-radius:10px;padding:10px 12px">
@@ -329,6 +342,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
     <div id="viewRecipeContent" style="white-space:pre-wrap;font-family:inherit;font-size:16px;line-height:1.9;color:#333;margin:0"></div>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="editRecipeFromView()" style="background:#f0f0f0;color:#333">✏️ ערוך</button>
+      <button class="btn" onclick="shareRecipeWhatsApp()" style="background:#25D366;color:#fff">📲 שלח בווצאפ</button>
       <button class="btn" onclick="closeRecipeView()" style="background:#eee;color:#333">סגור</button>
     </div>
   </div>
@@ -395,6 +409,13 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
     <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה 2.1 | מחסן ביתי</div>
   </div>
   <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">📱 נמעני ווצאפ</h3>
+      <button class="btn btn-primary btn-sm" onclick="openAddWAContact()">+ הוסף</button>
+    </div>
+    <div id="waContactsList"></div>
+  </div>
+  <div class="card">
     <h3>⚠️ אזור סכנה</h3>
     <button class="btn btn-danger" onclick="clearAllData()">🗑️ מחק את כל הנתונים</button>
   </div>
@@ -416,9 +437,13 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
           <option value="דברי חלב">דברי חלב</option>
           <option value="הגיינה">הגיינה</option>
           <option value="ירקות">ירקות</option>
+          <option value="כלי בית">כלי בית</option>
           <option value="ממתקים">ממתקים</option>
           <option value="מנות קשות">מנות קשות</option>
           <option value="ניקיון">ניקיון</option>
+          <option value="פירות">פירות</option>
+          <option value="קמחים">קמחים</option>
+          <option value="קפואים">קפואים</option>
           <option value="שימורים">שימורים</option>
           <option value="שתייה">שתייה</option>
           <option value="תבלינים">תבלינים</option>
@@ -596,11 +621,22 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
   <div class="modal" style="max-width:320px;text-align:center">
     <h3>📱 שליחה לווצאפ</h3>
     <p style="font-size:13px;color:#888;margin-bottom:16px">לחץ על כל אחד מהנמענים לשליחה</p>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
-      <button class="btn btn-success" style="font-size:16px;padding:14px" onclick="sendWA('972506779531')">📲 יוסי</button>
-      <button class="btn btn-success" style="font-size:16px;padding:14px" onclick="sendWA('972507640042')">📲 דליה</button>
-    </div>
+    <div id="waModalButtons" style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px"></div>
     <button class="btn btn-secondary" onclick="closeModal('modalWhatsApp')">סגור</button>
+  </div>
+</div>
+
+<!-- WA CONTACT MODAL -->
+<div id="modalWAContact" class="modal-bg">
+  <div class="modal" style="max-width:340px">
+    <h3 id="waContactModalTitle">הוסף נמען</h3>
+    <input type="hidden" id="waContactEditId">
+    <div class="form-group"><label>שם</label><input type="text" id="waContactName" placeholder="יוסי"></div>
+    <div class="form-group"><label>מספר טלפון</label><input type="tel" id="waContactPhone" placeholder="0501234567" style="direction:ltr;text-align:right"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalWAContact')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveWAContact()">שמור</button>
+    </div>
   </div>
 </div>
 
@@ -614,12 +650,13 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 const FIREBASE_URL = 'https://warehouse-sync-fcfd6-default-rtdb.asia-southeast1.firebasedatabase.app/warehouse.json';
 
 let data = {
-  products:[],movements:[],personal:[],recipes:[],
+  products:[],movements:[],personal:[],recipes:[],waContacts:[],
   settings:{defaultMin:5},
-  nextProductId:1,nextMovementId:1,nextPersonalId:1,nextRecipeId:1
+  nextProductId:1,nextMovementId:1,nextPersonalId:1,nextRecipeId:1,nextWAContactId:1
 };
 
 let sortField='name', sortAsc=true;
+let selectedCats = new Set();
 let personalSortField='category', personalSortAsc=true;
 let lastSyncHash='';
 let pollTimer=null;
@@ -719,6 +756,15 @@ async function load() {
   } catch(e){
     setSyncUI(navigator.onLine ? 'error' : 'offline');
   }
+  // ברירת מחדל לנמעני ווצאפ בטעינה ראשונה
+  if(!data.waContacts || data.waContacts.length === 0) {
+    data.waContacts = [
+      {id:1, name:'יוסי', phone:'972506779531'},
+      {id:2, name:'דליה', phone:'972507640042'}
+    ];
+    data.nextWAContactId = 3;
+    save();
+  }
   renderAll();
   startPolling();
 }
@@ -770,6 +816,7 @@ function showPage(id, btn) {
   if(id==='personal') renderPersonal();
   if(id==='dashboard') renderDashboard();
   if(id==='recipes') renderRecipes();
+  if(id==='settings') renderWAContacts();
 }
 
 // ── Render helpers ──────────────────────────────────────────────────────
@@ -818,18 +865,16 @@ function renderRecipes() {
     '<thead><tr style="background:#f5f5f5">' +
     `<th style="${thS}" onclick="sortRecipes('name')">שם המתכון${arr('name')}</th>` +
     `<th style="${thS}" onclick="sortRecipes('category')">קטגוריה${arr('category')}</th>` +
-    '<th style="padding:10px 12px;text-align:center;font-size:14px;border-bottom:2px solid #eee;width:80px">הצג</th>' +
     '<th style="padding:10px 12px;text-align:center;font-size:14px;border-bottom:2px solid #eee;width:90px">פעולות</th>' +
     '</tr></thead><tbody>' +
     list.map(r => {
       const bg = cats[r.category]||'#f5f5f5';
       const tc = catText[r.category]||'#333';
       return `<tr style="border-bottom:1px solid #f0f0f0">
-        <td style="padding:10px 12px;font-size:14px;font-weight:600">${r.name}</td>
-        <td style="padding:10px 12px"><span style="background:${bg};color:${tc};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600">${r.category}</span></td>
-        <td style="padding:10px 12px;text-align:center">
-          <input type="checkbox" style="width:20px;height:20px;cursor:pointer;accent-color:#3498db" onchange="onRecipeCheck(this,${r.id})">
+        <td style="padding:10px 12px;font-size:14px;font-weight:600">
+          <span onclick="openRecipeViewById(${r.id})" style="color:#2980b9;cursor:pointer;text-decoration:underline">${r.name}</span>
         </td>
+        <td style="padding:10px 12px"><span style="background:${bg};color:${tc};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600">${r.category}</span></td>
         <td style="padding:10px 12px;text-align:center;white-space:nowrap">
           <button onclick="openEditRecipeById(${r.id})" style="background:none;border:none;color:#3498db;font-size:18px;cursor:pointer" title="ערוך">✏️</button>
           <button onclick="deleteRecipe(${r.id})" style="background:none;border:none;color:#e74c3c;font-size:18px;cursor:pointer" title="מחק">🗑</button>
@@ -870,6 +915,19 @@ function linkifyText(html) {
 function openEditRecipeById(id) {
   const r = (data.recipes||[]).find(x=>x.id===id);
   if(r) openEditRecipe(r);
+}
+
+function shareRecipeWhatsApp() {
+  const r = (data.recipes||[]).find(x=>x.id===_currentViewRecipeId);
+  if(!r) return;
+  const text = `*${r.name}*\n\n${r.content.replace(/<[^>]+>/g,'')}`;
+  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+}
+
+function openRecipeViewById(id) {
+  const r = (data.recipes||[]).find(x=>x.id===id);
+  if(r) openRecipeView(r);
 }
 
 function openRecipeView(r) {
@@ -1003,6 +1061,7 @@ function deleteRecipe(id) {
 
 function renderAll() {
   renderDashboard();
+  renderWAContacts();
   const active = document.querySelector('.page.active');
   if(active) {
     const id = active.id.replace('page-','');
@@ -1122,11 +1181,24 @@ function quickEdit() {
 }
 
 function populateCatFilter() {
-  const cats = [...new Set((data.products||[]).map(p=>p.category).filter(Boolean))].sort();
-  const sel = document.getElementById('prodCatFilter');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">כל הקטגוריות</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
-  if(cur) sel.value = cur;
+  const cats = [...new Set((data.products||[]).map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'he'));
+  const el = document.getElementById('catChips');
+  if(!el) return;
+  // הסר קטגוריות שנמחקו
+  selectedCats.forEach(c=>{ if(!cats.includes(c)) selectedCats.delete(c); });
+  el.innerHTML = `<button class="cat-chip${selectedCats.size===0?' active':''}" onclick="toggleCatFilter('')">כולם</button>` +
+    cats.map(c=>`<button class="cat-chip${selectedCats.has(c)?' active':''}" onclick="toggleCatFilter('${c.replace(/'/g,"\\\'")}')">${c}</button>`).join('');
+}
+
+function toggleCatFilter(cat) {
+  if(cat === '') {
+    selectedCats.clear();
+  } else {
+    if(selectedCats.has(cat)) selectedCats.delete(cat);
+    else selectedCats.add(cat);
+  }
+  populateCatFilter();
+  renderProducts();
 }
 
 function sortProducts(field) {
@@ -1136,11 +1208,10 @@ function sortProducts(field) {
 
 function renderProducts() {
   const search = (document.getElementById('prodSearch').value||'').toLowerCase();
-  const catF = document.getElementById('prodCatFilter').value;
   const shopF = document.getElementById('prodShopFilter').value;
   let prods = (data.products||[]).filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search) || (p.category||'').toLowerCase().includes(search);
-    const matchCat = !catF || p.category===catF;
+    const matchCat = selectedCats.size === 0 || selectedCats.has(p.category);
     const matchShop = !shopF || (shopF==='shopping' && p.shopping);
     return matchSearch && matchCat && matchShop;
   });
@@ -1279,7 +1350,7 @@ function openEditProduct(id) {
   document.getElementById('modalProductTitle').textContent = 'ערוך מוצר';
   document.getElementById('editProductId').value = id;
   document.getElementById('pName').value = p.name||'';
-  const knownCats = ['אפיה','בשר','חטיפים','דברי חלב','הגיינה','ירקות','ממתקים','מנות קשות','ניקיון','שימורים','שתייה','תבלינים'];
+  const knownCats = ['אפיה','בשר','חטיפים','דברי חלב','הגיינה','ירקות','כלי בית','ממתקים','מנות קשות','ניקיון','פירות','קמחים','קפואים','שימורים','שתייה','תבלינים'];
   if(knownCats.includes(p.category)) {
     document.getElementById('pCat').value = p.category;
     document.getElementById('otherCatGroup').style.display = 'none';
@@ -1367,7 +1438,84 @@ function sendToWhatsApp() {
 
   const msg = '🛒 רשימת קניות:\n\n' + sections.join('\n\n');
   _waEncodedMsg = encodeURIComponent(msg);
+
+  const contacts = data.waContacts||[];
+  const btns = document.getElementById('waModalButtons');
+  if(!contacts.length) {
+    btns.innerHTML = '<p style="color:#aaa;font-size:13px;text-align:center">אין נמענים. הוסף בהגדרות ⚙️</p>';
+  } else {
+    btns.innerHTML = contacts.map(c =>
+      `<button class="btn btn-success" style="font-size:16px;padding:14px" onclick="sendWA('${c.phone}')">📲 ${c.name}</button>`
+    ).join('');
+  }
   openModal('modalWhatsApp');
+}
+
+// ── WA Contacts CRUD ────────────────────────────────────────────────────
+function renderWAContacts() {
+  const contacts = data.waContacts||[];
+  const el = document.getElementById('waContactsList');
+  if(!el) return;
+  if(!contacts.length) {
+    el.innerHTML = '<p style="color:#aaa;font-size:13px;text-align:center;padding:10px">אין נמענים עדיין</p>';
+    return;
+  }
+  el.innerHTML = contacts.map(c => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0">
+      <div>
+        <div style="font-weight:600;font-size:14px">${c.name}</div>
+        <div style="font-size:12px;color:#888;direction:ltr;text-align:right">${c.phone}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-primary" onclick="openEditWAContact(${c.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteWAContact(${c.id})">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+function openAddWAContact() {
+  document.getElementById('waContactModalTitle').textContent = 'הוסף נמען';
+  document.getElementById('waContactEditId').value = '';
+  document.getElementById('waContactName').value = '';
+  document.getElementById('waContactPhone').value = '';
+  openModal('modalWAContact');
+}
+
+function openEditWAContact(id) {
+  const c = (data.waContacts||[]).find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('waContactModalTitle').textContent = 'ערוך נמען';
+  document.getElementById('waContactEditId').value = id;
+  document.getElementById('waContactName').value = c.name;
+  document.getElementById('waContactPhone').value = c.phone;
+  openModal('modalWAContact');
+}
+
+function saveWAContact() {
+  const name = document.getElementById('waContactName').value.trim();
+  let phone = document.getElementById('waContactPhone').value.trim().replace(/[^\d]/g,'');
+  if(!name){ alert('נא להזין שם'); return; }
+  if(!phone){ alert('נא להזין מספר טלפון'); return; }
+  // המרה לפורמט בינלאומי ישראלי
+  if(phone.startsWith('0')) phone = '972' + phone.slice(1);
+  if(!data.waContacts) data.waContacts=[];
+  const editId = document.getElementById('waContactEditId').value;
+  if(editId) {
+    const c = data.waContacts.find(x=>x.id===parseInt(editId));
+    if(c){ c.name=name; c.phone=phone; }
+  } else {
+    data.waContacts.push({id: data.nextWAContactId||1, name, phone});
+    data.nextWAContactId = (data.nextWAContactId||1)+1;
+  }
+  closeModal('modalWAContact');
+  save();
+  renderWAContacts();
+}
+
+function deleteWAContact(id) {
+  if(!confirm('למחוק נמען זה?')) return;
+  data.waContacts = (data.waContacts||[]).filter(c=>c.id!==id);
+  save(); renderWAContacts();
 }
 
 function sendWA(number) {
@@ -1617,7 +1765,7 @@ function saveSettings() {
 
 function clearAllData() {
   if(!confirm('האם אתה בטוח שברצונך למחוק את כל הנתונים?')) return;
-  data = {products:[],movements:[],personal:[],settings:{defaultMin:5},nextProductId:1,nextMovementId:1,nextPersonalId:1};
+  data = {products:[],movements:[],personal:[],recipes:[],waContacts:[],settings:{defaultMin:5},nextProductId:1,nextMovementId:1,nextPersonalId:1,nextRecipeId:1,nextWAContactId:1};
   save(); renderAll();
 }
 
