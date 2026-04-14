@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '50';
+  var VER = '51';
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
     location.replace(location.pathname + '?_v=' + VER);
@@ -125,7 +125,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v50</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v51</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -920,7 +920,18 @@ function openEditRecipeById(id) {
 function shareRecipeWhatsApp() {
   const r = (data.recipes||[]).find(x=>x.id===_currentViewRecipeId);
   if(!r) return;
-  const text = `*${r.name}*\n\n${r.content.replace(/<[^>]+>/g,'')}`;
+  let content = r.content
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const text = `*${r.name}*\n\n${content}`;
   const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
 }
