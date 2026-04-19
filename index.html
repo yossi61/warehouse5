@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '61';
+  var VER = '64';
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
     location.replace(location.pathname + '?_v=' + VER);
@@ -125,7 +125,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v61</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v64</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -249,13 +249,42 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <h2 style="margin:0">🍽️ מתכונים</h2>
-      <button class="btn btn-primary" onclick="openAddRecipe()">+ הוסף מתכון</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="openBakingConversions()" style="background:#e67e22">⚖️ המרות לאפייה</button>
+        <button class="btn btn-primary" onclick="openAddRecipe()">+ הוסף מתכון</button>
+      </div>
     </div>
     <div class="filter-row" style="margin-bottom:8px">
       <input type="text" id="recipeSearch" placeholder="🔍 חיפוש מתכון..." oninput="renderRecipes()" style="flex:1;min-width:120px;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:14px">
     </div>
     <div id="recipeCatChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
     <div id="recipesList"></div>
+  </div>
+</div>
+
+<!-- MODAL: המרות לאפייה -->
+<div id="bakingConversionsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:480px;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2);overflow:hidden">
+    <!-- כותרת -->
+    <div style="background:linear-gradient(135deg,#e67e22,#f39c12);padding:18px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#fff">⚖️ המרות לאפייה</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.85);margin-top:2px">כוסות • כפות • כפיות לגרמים</div>
+      </div>
+      <button onclick="closeBakingConversions()" style="background:rgba(255,255,255,0.25);border:none;color:#fff;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;font-weight:bold">✕</button>
+    </div>
+    <!-- טאבים -->
+    <div style="display:flex;border-bottom:2px solid #f0f0f0;background:#fafafa">
+      <button id="bcTab-cups" onclick="switchBCTab('cups')" style="flex:1;padding:12px 4px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#e67e22;border-bottom:3px solid #e67e22;transition:all 0.2s">🥛 כוסות</button>
+      <button id="bcTab-tbsp" onclick="switchBCTab('tbsp')" style="flex:1;padding:12px 4px;border:none;background:none;font-size:14px;font-weight:600;cursor:pointer;color:#999;border-bottom:3px solid transparent;transition:all 0.2s">🥄 כפות</button>
+      <button id="bcTab-tsp" onclick="switchBCTab('tsp')" style="flex:1;padding:12px 4px;border:none;background:none;font-size:14px;font-weight:600;cursor:pointer;color:#999;border-bottom:3px solid transparent;transition:all 0.2s">🫙 כפיות</button>
+    </div>
+    <!-- חיפוש -->
+    <div style="padding:12px 16px 8px">
+      <input type="text" id="bcSearch" placeholder="🔍 חפש מרכיב..." oninput="renderBCTable()" style="width:100%;padding:8px 12px;border-radius:8px;border:1.5px solid #ddd;font-size:14px">
+    </div>
+    <!-- טבלה -->
+    <div id="bcTableWrap" style="padding:0 16px 16px;max-height:55vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -324,6 +353,29 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
     </div>
     <hr style="margin:12px 0;border-color:#eee">
     <div id="viewRecipeContent" style="white-space:pre-wrap;font-family:inherit;font-size:16px;line-height:1.9;color:#333;margin:0"></div>
+
+    <!-- מחשבון מנות -->
+    <div style="margin-top:18px;border:2px solid #e8f4fd;border-radius:12px;overflow:hidden">
+      <div onclick="toggleScaleCalc()" style="background:#e8f4fd;padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:700;color:#2980b9;font-size:15px">🔢 מחשבון מנות</span>
+        <span id="scaleCalcArrow" style="color:#2980b9;font-size:18px;transition:transform 0.2s">▼</span>
+      </div>
+      <div id="scaleCalcBody" style="display:none;padding:14px 16px;background:#f8fcff">
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:100px">
+            <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">כמות מקורית</label>
+            <input type="number" id="scaleFrom" placeholder="למשל 400" min="1" style="padding:8px 10px;border-radius:8px;border:1.5px solid #ddd;font-size:15px;width:100%">
+          </div>
+          <div style="flex:1;min-width:100px">
+            <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">כמות רצויה</label>
+            <input type="number" id="scaleTo" placeholder="למשל 600" min="1" style="padding:8px 10px;border-radius:8px;border:1.5px solid #ddd;font-size:15px;width:100%">
+          </div>
+          <button onclick="calcScale()" class="btn btn-primary" style="height:38px;padding:0 18px">חשב</button>
+        </div>
+        <div id="scaleResult" style="margin-top:12px"></div>
+      </div>
+    </div>
+
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="editRecipeFromView()" style="background:#f0f0f0;color:#333">✏️ ערוך</button>
       <button class="btn" onclick="shareRecipeWhatsApp()" style="background:#25D366;color:#fff">📲 שלח בווצאפ</button>
@@ -942,7 +994,56 @@ function openRecipeView(r) {
   document.getElementById('viewRecipeName').textContent = r.name;
   document.getElementById('viewRecipeCategory').textContent = r.category;
   document.getElementById('viewRecipeContent').innerHTML = linkifyText(r.content);
+  // איפוס מחשבון מנות
+  document.getElementById('scaleCalcBody').style.display = 'none';
+  document.getElementById('scaleCalcArrow').style.transform = '';
+  document.getElementById('scaleFrom').value = '';
+  document.getElementById('scaleTo').value = '';
+  document.getElementById('scaleResult').innerHTML = '';
   document.getElementById('recipeViewModal').style.display = 'flex';
+}
+
+function toggleScaleCalc() {
+  const body = document.getElementById('scaleCalcBody');
+  const arrow = document.getElementById('scaleCalcArrow');
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  arrow.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function calcScale() {
+  const from = parseFloat(document.getElementById('scaleFrom').value);
+  const to = parseFloat(document.getElementById('scaleTo').value);
+  const resultEl = document.getElementById('scaleResult');
+  if(!from || !to || from <= 0 || to <= 0) {
+    resultEl.innerHTML = '<div style="color:#e74c3c;font-size:13px">אנא הכנס כמויות תקינות</div>';
+    return;
+  }
+  const factor = to / from;
+  const r = (data.recipes||[]).find(x=>x.id===_currentViewRecipeId);
+  if(!r) return;
+  // מעבד את תוכן המתכון — מחפש מספרים לפני יחידות מדידה
+  const units = 'גרם|ק"ג|כוס|כוסות|כף|כפות|כפית|כפיות|מ"ל|ליטר|יח\'|יחידות|מל';
+  const regex = new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(${units})`, 'g');
+  // עובד על טקסט נקי (ללא HTML)
+  const plain = r.content
+    .replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n').replace(/<\/div>/gi,'\n')
+    .replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').trim();
+  const scaled = plain.replace(regex, (match, num, unit) => {
+    const orig = parseFloat(num.replace(',','.'));
+    const newVal = orig * factor;
+    let display;
+    if(newVal >= 100) display = Math.round(newVal);
+    else if(newVal >= 10) display = Math.round(newVal * 10) / 10;
+    else display = Math.round(newVal * 100) / 100;
+    return `<strong style="color:#e67e22">${display} ${unit}</strong>`;
+  });
+  const pct = Math.round(factor * 100);
+  resultEl.innerHTML = `
+    <div style="background:#fff;border-radius:10px;padding:14px;border:1.5px solid #e67e22">
+      <div style="font-size:12px;color:#999;margin-bottom:10px">× ${factor.toFixed(2)} (${pct}%) — מתכון ל-<strong>${to}</strong> גרם</div>
+      <div style="white-space:pre-wrap;font-size:15px;line-height:2;color:#333">${scaled}</div>
+    </div>`;
 }
 
 function closeRecipeView() {
@@ -951,8 +1052,8 @@ function closeRecipeView() {
 }
 
 function editRecipeFromView() {
-  closeRecipeView();
   const r = (data.recipes||[]).find(x=>x.id===_currentViewRecipeId);
+  closeRecipeView();
   if(r) openEditRecipe(r);
 }
 
@@ -999,6 +1100,98 @@ function recipeFormatSize(size) {
     span.innerHTML = el.innerHTML;
     el.parentNode.replaceChild(span, el);
   });
+}
+
+// ── המרות לאפייה ─────────────────────────────────────────────────────────
+const BC_DATA = {
+  cups: [
+    {name:'קמח רגיל / תופח', val:'140 גרם'},
+    {name:'קמח מלא', val:'125 גרם'},
+    {name:'סוכר', val:'200 גרם'},
+    {name:'סוכר חום דחוס', val:'225 גרם'},
+    {name:'חמאה', val:'230 גרם'},
+    {name:'אבקת סוכר', val:'120 גרם'},
+    {name:'אגוזים טחונים', val:'110 גרם'},
+    {name:'אגוזים קצוצים', val:'100 גרם'},
+    {name:'אורז ארוך', val:'200 גרם'},
+    {name:'אורז קצר', val:'210 גרם'},
+    {name:'דבש / סירופ מייפל', val:'320 גרם'},
+    {name:'ריבה', val:'320 גרם'},
+    {name:'חמאת בוטנים', val:'280 גרם'},
+    {name:'מלח', val:'290 גרם'},
+    {name:'פירות יבשים קצוצים', val:'150 גרם'},
+    {name:'פירורי לחם', val:'125 גרם'},
+    {name:'פירורי עוגיות', val:'110 גרם'},
+    {name:'צימוקים', val:'140 גרם'},
+    {name:'קוקוס טחון', val:'70 גרם'},
+    {name:'קורנפלור', val:'140 גרם'},
+    {name:'קקאו', val:'140 גרם'},
+    {name:'שוקולד צ\'יפס', val:'200 גרם'},
+    {name:'שיבולת שועל', val:'100 גרם'},
+    {name:'שמן', val:'200 גרם'},
+  ],
+  tbsp: [
+    {name:'קמח', val:'10 גרם'},
+    {name:'סוכר', val:'12 גרם'},
+    {name:'מלח', val:'18 גרם'},
+    {name:'שמרים יבשים', val:'10 גרם'},
+    {name:'חמאה', val:'15 גרם'},
+    {name:'אבקת אפייה / אבקת סוכר', val:'10 גרם'},
+    {name:'אגוזים/שקדים קצוצים', val:'6 גרם'},
+    {name:'אבקת ג\'לטין', val:'10 גרם'},
+    {name:'דבש', val:'22 גרם'},
+    {name:'סודה לשתייה', val:'10 גרם'},
+    {name:'קורנפלור', val:'10 גרם'},
+  ],
+  tsp: [
+    {name:'אבקת אפייה / אבקת סוכר', val:'3 גרם'},
+    {name:'מלח', val:'6 גרם'},
+    {name:'סודה לשתייה', val:'3 גרם'},
+    {name:'סוכר', val:'4 גרם'},
+    {name:'סוכר חום גדוש', val:'5 גרם'},
+    {name:'קמח', val:'3 גרם'},
+  ]
+};
+let _bcTab = 'cups';
+
+function openBakingConversions() {
+  _bcTab = 'cups';
+  document.getElementById('bcSearch').value = '';
+  switchBCTab('cups');
+  document.getElementById('bakingConversionsModal').style.display = 'flex';
+}
+
+function closeBakingConversions() {
+  document.getElementById('bakingConversionsModal').style.display = 'none';
+}
+
+function switchBCTab(tab) {
+  _bcTab = tab;
+  ['cups','tbsp','tsp'].forEach(t => {
+    const btn = document.getElementById('bcTab-'+t);
+    btn.style.color = t===tab ? '#e67e22' : '#999';
+    btn.style.borderBottom = t===tab ? '3px solid #e67e22' : '3px solid transparent';
+    btn.style.fontWeight = t===tab ? '700' : '600';
+  });
+  renderBCTable();
+}
+
+function renderBCTable() {
+  const search = (document.getElementById('bcSearch').value||'').toLowerCase();
+  const items = BC_DATA[_bcTab].filter(i => !search || i.name.toLowerCase().includes(search));
+  const labels = {cups:'כוס', tbsp:'כף', tsp:'כפית'};
+  const label = labels[_bcTab];
+  const wrap = document.getElementById('bcTableWrap');
+  if(!items.length) {
+    wrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:30px;font-size:15px">לא נמצאו תוצאות</div>';
+    return;
+  }
+  wrap.innerHTML = items.map((item,i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-radius:10px;margin-bottom:6px;background:${i%2===0?'#fff8f2':'#fff'};border:1px solid #f0e0d0">
+      <div style="font-size:14px;color:#333;font-weight:500">${label} ${item.name}</div>
+      <div style="font-size:15px;font-weight:700;color:#e67e22;white-space:nowrap;margin-right:8px">${item.val}</div>
+    </div>
+  `).join('');
 }
 
 function openAddRecipe() {
