@@ -125,7 +125,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v51</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v54</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -251,25 +251,10 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
       <h2 style="margin:0">🍽️ מתכונים</h2>
       <button class="btn btn-primary" onclick="openAddRecipe()">+ הוסף מתכון</button>
     </div>
-    <div class="filter-row" style="margin-bottom:12px">
+    <div class="filter-row" style="margin-bottom:8px">
       <input type="text" id="recipeSearch" placeholder="🔍 חיפוש מתכון..." oninput="renderRecipes()" style="flex:1;min-width:120px;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:14px">
-      <select id="recipeCatFilter" onchange="renderRecipes()" style="padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:14px">
-        <option value="">כל הקטגוריות</option>
-        <option value="לחמים">לחמים</option>
-        <option value="עוגות">עוגות</option>
-        <option value="סלטים">סלטים</option>
-        <option value="מאפים">מאפים</option>
-        <option value="פיצות">פיצות</option>
-        <option value="פוקצ׳ה">פוקצ׳ה</option>
-        <option value="קינוחים">קינוחים</option>
-        <option value="עוגיות">עוגיות</option>
-        <option value="ריבות">ריבות</option>
-        <option value="לחמניות">לחמניות</option>
-        <option value="חלות">חלות</option>
-        <option value="פיתות">פיתות</option>
-        <option value="פסח">פסח</option>
-      </select>
     </div>
+    <div id="recipeCatChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
     <div id="recipesList"></div>
   </div>
 </div>
@@ -286,22 +271,21 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
     <div style="margin-bottom:12px">
       <label style="font-weight:600;font-size:14px;display:block;margin-bottom:4px">קטגוריה</label>
       <select id="recipeCategory" onchange="toggleCustomCategory()" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
-        <option value="לחמים">לחמים</option>
-        <option value="עוגות">עוגות</option>
-        <option value="סלטים">סלטים</option>
-        <option value="מאפים">מאפים</option>
-        <option value="פיצות">פיצות</option>
-        <option value="פוקצ׳ה">פוקצ׳ה</option>
-        <option value="קינוחים">קינוחים</option>
-        <option value="מאכלים">מאכלים</option>
-        <option value="חטיפים">חטיפים</option>
-        <option value="ממתקים">ממתקים</option>
-        <option value="עוגיות">עוגיות</option>
-        <option value="ריבות">ריבות</option>
-        <option value="לחמניות">לחמניות</option>
+        <option value="בגטים">בגטים</option>
         <option value="חלות">חלות</option>
+        <option value="לחמים">לחמים</option>
+        <option value="לחמניות">לחמניות</option>
+        <option value="מאכלים">מאכלים</option>
+        <option value="מאפים">מאפים</option>
+        <option value="סלטים">סלטים</option>
+        <option value="עוגות">עוגות</option>
+        <option value="עוגיות">עוגיות</option>
+        <option value="פוקצ׳ה">פוקצ׳ה</option>
+        <option value="פיצות">פיצות</option>
         <option value="פיתות">פיתות</option>
         <option value="פסח">פסח</option>
+        <option value="קינוחים">קינוחים</option>
+        <option value="ריבות">ריבות</option>
         <option value="__other__">אחר...</option>
       </select>
       <div id="recipeCategoryCustomWrapper" style="display:none;margin-top:8px;background:#eaf4ff;border-radius:10px;padding:10px 12px">
@@ -657,6 +641,7 @@ let data = {
 
 let sortField='name', sortAsc=true;
 let selectedCats = new Set();
+let selectedRecipeCats = new Set();
 let personalSortField='category', personalSortAsc=true;
 let lastSyncHash='';
 let pollTimer=null;
@@ -830,20 +815,30 @@ function sortRecipes(field) {
   renderRecipes();
 }
 
-function renderRecipes() {
-  // בנה את רשימת הקטגוריות דינמית מהנתונים
-  const catFilterEl = document.getElementById('recipeCatFilter');
-  const currentFilter = (catFilterEl||{}).value || '';
-  const allCats = [...new Set((data.recipes||[]).map(r=>r.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'he'));
-  if(catFilterEl) {
-    const prev = catFilterEl.value;
-    catFilterEl.innerHTML = '<option value="">כל הקטגוריות</option>' +
-      allCats.map(c=>`<option value="${c}"${c===prev?' selected':''}>${c}</option>`).join('');
+function populateRecipeCatChips() {
+  const allCats = ['בגטים','חלות','לחמים','לחמניות','מאכלים','מאפים','סלטים','עוגות','עוגיות','פוקצ׳ה','פיצות','פיתות','פסח','קינוחים','ריבות'];
+  const el = document.getElementById('recipeCatChips');
+  if(!el) return;
+  el.innerHTML = `<button class="cat-chip${selectedRecipeCats.size===0?' active':''}" onclick="toggleRecipeCatFilter('')">כולם</button>` +
+    allCats.map(c=>`<button class="cat-chip${selectedRecipeCats.has(c)?' active':''}" onclick="toggleRecipeCatFilter('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('');
+}
+
+function toggleRecipeCatFilter(cat) {
+  if(cat === '') {
+    selectedRecipeCats.clear();
+  } else {
+    if(selectedRecipeCats.has(cat)) selectedRecipeCats.delete(cat);
+    else selectedRecipeCats.add(cat);
   }
-  const filter = currentFilter;
+  populateRecipeCatChips();
+  renderRecipes();
+}
+
+function renderRecipes() {
+  populateRecipeCatChips();
   const search = ((document.getElementById('recipeSearch')||{}).value||'').toLowerCase();
   let list = (data.recipes||[]).filter(r => {
-    const matchCat = !filter || r.category === filter;
+    const matchCat = selectedRecipeCats.size === 0 || selectedRecipeCats.has(r.category);
     const matchSearch = !search || r.name.toLowerCase().includes(search) || (r.category||'').toLowerCase().includes(search);
     return matchCat && matchSearch;
   });
@@ -1083,6 +1078,7 @@ function renderAll() {
     else if(id==='recipes') renderRecipes();
   }
   populateCatFilter();
+  populateRecipeCatChips();
 }
 
 function renderDashboard() {
