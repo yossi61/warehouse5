@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '71';
+  var VER = '75';
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
     location.replace(location.pathname + '?_v=' + VER);
@@ -125,7 +125,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v71</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v75</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -517,14 +517,14 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
       <label>תמונה</label>
       <input type="hidden" id="pImageData">
       <div class="img-upload-area" onclick="document.getElementById('pImageFile').click()">📷 לחץ לבחירת תמונה</div>
-      <input type="file" id="pImageFile" accept="image/*" style="display:none" onchange="handleImageUpload(event,'pImagePreview','pImageData','pImageRemove')">
+      <input type="file" id="pImageFile" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
       <img id="pImagePreview" class="img-preview">
       <button type="button" id="pImageRemove" class="btn btn-sm btn-secondary" style="display:none;margin-top:6px" onclick="removeImage('pImagePreview','pImageData','pImageRemove')">🗑️ הסר תמונה</button>
-      <div class="sync-note">✓ התמונה מסונכרנת לכל המכשירים</div>
+      <div id="pUploadStatus" style="font-size:13px;color:#27ae60;margin-top:6px;min-height:18px"></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalProduct')">ביטול</button>
-      <button class="btn btn-primary" onclick="saveProduct()">שמור</button>
+      <button id="pSaveBtn" class="btn btn-primary" onclick="saveProduct()">שמור</button>
     </div>
   </div>
 </div>
@@ -1560,15 +1560,19 @@ function renderPersonal() {
     }
     const imgCell = r.image
       ? (r.fileType==='pdf'
-          ? `<span onclick="openPdfById(${r.id})" style="font-size:22px;cursor:pointer" title="פתח PDF">📄</span>`
-          : `<img src="${r.image}" class="img-thumb" onclick="openLightboxImg('${r.image}')">`)
+          ? `<span style="font-size:22px" title="פתח PDF">📄</span>`
+          : `<img src="${r.image}" class="img-thumb">`)
       : '<span style="color:#ddd">—</span>';
-    return `<tr>
+    const rowClick = r.image
+      ? (r.fileType==='pdf' ? `openPdfById(${r.id})` : `openLightboxImg('${r.image}')`)
+      : '';
+    const rowStyle = r.image ? 'cursor:pointer' : '';
+    return `<tr onclick="${rowClick}" style="${rowStyle}">
       <td><strong>${r.name||''}</strong></td>
       <td>${r.category}</td>
       <td style="font-size:13px;color:#555">${details}</td>
       <td style="text-align:center">${imgCell}</td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
           <button class="btn btn-sm btn-primary" onclick="openEditPersonal(${r.id})">✏️</button>
           <button class="btn btn-sm btn-danger" onclick="deletePersonal(${r.id})">🗑️</button>
@@ -2038,29 +2042,44 @@ function clearAllData() {
 }
 
 // ── Images ──────────────────────────────────────────────────────────────
-function handleImageUpload(event, previewId, dataId, removeBtnId) {
+async function handleImageUpload(event) {
   const file = event.target.files[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      const canvas = document.createElement('canvas');
-      const MAX = 400;
-      let w=img.width, h=img.height;
-      if(w>h){ if(w>MAX){h=h*MAX/w;w=MAX;} } else { if(h>MAX){w=w*MAX/h;h=MAX;} }
-      canvas.width=w; canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const compressed = canvas.toDataURL('image/jpeg',0.65);
-      document.getElementById(dataId).value = compressed;
-      const prev = document.getElementById(previewId);
-      prev.src=compressed; prev.style.display='';
-      document.getElementById(removeBtnId).style.display='';
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-  event.target.value='';
+  event.target.value = '';
+  const statusEl = document.getElementById('pUploadStatus');
+  statusEl.textContent = '⏳ מעלה לענן...';
+  document.getElementById('pSaveBtn').disabled = true;
+  try {
+    const dataUrl = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX = 1200;
+          let w=img.width, h=img.height;
+          if(w>h){ if(w>MAX){h=h*MAX/w;w=MAX;} } else { if(h>MAX){w=w*MAX/h;h=MAX;} }
+          canvas.width=w; canvas.height=h;
+          canvas.getContext('2d').drawImage(img,0,0,w,h);
+          res(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        img.onerror = rej;
+        img.src = e.target.result;
+      };
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+    const url = await uploadToCloudinary(dataUrl, 'image');
+    document.getElementById('pImageData').value = url;
+    const prev = document.getElementById('pImagePreview');
+    prev.src = url; prev.style.display = '';
+    document.getElementById('pImageRemove').style.display = '';
+    statusEl.textContent = '✓ הועלה לענן';
+  } catch(e) {
+    alert('⚠️ שגיאה בהעלאה לענן. בדוק חיבור לאינטרנט ונסה שוב.');
+    statusEl.textContent = '';
+  }
+  document.getElementById('pSaveBtn').disabled = false;
 }
 
 async function uploadToCloudinary(fileOrDataUrl, resourceType) {
@@ -2083,10 +2102,12 @@ async function handleDocUpload(event) {
   document.getElementById('perSaveBtn').disabled = true;
   try {
     let url;
+    // כל קובץ (תמונה או PDF) מועלה כ-image — Cloudinary ממיר PDF לתמונה של העמוד הראשון
     if(isPdf) {
-      url = await uploadToCloudinary(file, 'raw');
+      const rawUrl = await uploadToCloudinary(file, 'image');
+      // Cloudinary מחזיר URL עם .pdf — שינוי ל-.jpg מאפשר גישה לתמונה שנוצרה
+      url = rawUrl.replace(/\.pdf$/i, '.jpg');
     } else {
-      // דחיסת תמונה לפני העלאה
       const dataUrl = await new Promise((res, rej) => {
         const reader = new FileReader();
         reader.onload = e => {
@@ -2109,15 +2130,10 @@ async function handleDocUpload(event) {
       url = await uploadToCloudinary(dataUrl, 'image');
     }
     document.getElementById('perImageData').value = url;
-    document.getElementById('perFileType').value = isPdf ? 'pdf' : 'image';
-    if(isPdf) {
-      document.getElementById('perImagePreview').style.display = 'none';
-      document.getElementById('perPdfPreview').style.display = '';
-    } else {
-      const prev = document.getElementById('perImagePreview');
-      prev.src = url; prev.style.display = '';
-      document.getElementById('perPdfPreview').style.display = 'none';
-    }
+    document.getElementById('perFileType').value = 'image';
+    const prev = document.getElementById('perImagePreview');
+    prev.src = url; prev.style.display = '';
+    document.getElementById('perPdfPreview').style.display = 'none';
     document.getElementById('perImageRemove').style.display = '';
     statusEl.textContent = '✓ הועלה לענן';
   } catch(e) {
@@ -2146,13 +2162,13 @@ function removePersonalFile() {
 function openPdfFromData() {
   const src = document.getElementById('perImageData').value;
   if(!src) return;
-  window.open(src, '_blank');
+  window.open('https://docs.google.com/viewer?url=' + encodeURIComponent(src), '_blank');
 }
 
 function openPdfById(id) {
   const r = (data.personal||[]).find(x=>x.id===id);
   if(!r || !r.image) return;
-  window.open(r.image, '_blank');
+  window.open('https://docs.google.com/viewer?url=' + encodeURIComponent(r.image), '_blank');
 }
 
 function openLightbox(id, type) {
