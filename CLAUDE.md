@@ -74,4 +74,4 @@
 `thumbUrl()` מבקש מ-Cloudinary תמונה מוקטנת (160px) לכרטיסים.
 ✅ **גיבוי מלא עם תמונות (v87):** `exportFullBackup()` מוריד כל תמונה (`urlToDataUrl`, צריך CORS מ-res.cloudinary.com) ושומר קובץ
 `warehouse-full-backup-*.json` = הנתונים + `_images` (כתובת → dataURL). ב-`restoreData`, אם יש `_images`: `restoreImagesFromBackup` בודק כל
-כתובת (`imageAlive`), מעלה מחדש רק תמונות שנעלמו ומעדכן את הכתובת. `_images` נמחק לפני השמירה לענן. נבדק עם Cloudinary מדומה.
+כתובת (`imageAlive`), מעלה מחדש רק תמונות שנעלמו ומעדכן את הכתובת. `_images` נמחק לפני השמירה לענן. נבדק עם Cloudinary מדומה, ויוסי הוריד גיבוי מלא אמיתי עם כל התמונות (CORS עובד).
