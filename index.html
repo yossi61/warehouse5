@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '90';
+  var VER = '91';
   window.APP_VER = VER;
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
@@ -271,7 +271,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 </head>
 <body>
 
-<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v90</span></div></header>
+<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v91</span></div></header>
 
 <div class="mobile-tabs">
   <button class="mobile-tab" id="mtab-dashboard" onclick="showPage('dashboard',this)"><span class="icon">🏠</span>דשבורד</button>
@@ -601,7 +601,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
       <button class="btn btn-secondary" onclick="manualSync()">🔄 סנכרון ידני</button>
     </div>
     <div id="authInfo" style="font-size:13px;color:#555;margin-top:10px"></div>
-    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v90 | מחסן ביתי</div>
+    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v91 | מחסן ביתי</div>
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -916,10 +916,13 @@ let pollTimer=null;
 let _lastSaveTime=0;
 
 // ── Cloud sync helpers ──────────────────────────────────────────────────
+// רק תמונות base64 ישנות שנשמרו במכשיר בלבד (לא עוברות לענן). כתובות Cloudinary מגיעות מהענן —
+// אם מחזירים גם אותן, תמונה שנמחקה במכשיר אחר "חוזרת" (תוקן ב-v91)
+const isLocalImg = v => typeof v === 'string' && v.startsWith('data:');
 function extractImages() {
   const imgs = {};
-  data.products.forEach(p => { if(p.image) imgs['p_'+p.id] = p.image; });
-  (data.personal||[]).forEach(r => { if(r.image) imgs['r_'+r.id] = r.image; });
+  data.products.forEach(p => { if(isLocalImg(p.image)) imgs['p_'+p.id] = p.image; });
+  (data.personal||[]).forEach(r => { if(isLocalImg(r.image)) imgs['r_'+r.id] = r.image; });
   return imgs;
 }
 
@@ -933,8 +936,8 @@ function mainDataOnly() {
 
 function applyImages(imgs) {
   if(!imgs) return;
-  data.products.forEach(p => { if(imgs['p_'+p.id]) p.image = imgs['p_'+p.id]; });
-  (data.personal||[]).forEach(r => { if(imgs['r_'+r.id]) r.image = imgs['r_'+r.id]; });
+  data.products.forEach(p => { if(isLocalImg(imgs['p_'+p.id]) && !p.image) p.image = imgs['p_'+p.id]; });
+  (data.personal||[]).forEach(r => { if(isLocalImg(imgs['r_'+r.id]) && !r.image) r.image = imgs['r_'+r.id]; });
 }
 
 // ── IndexedDB — אחסון תמונות ומסמכים (ללא מגבלת גודל) ──────────────────
