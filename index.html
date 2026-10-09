@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '87';
+  var VER = '88';
   window.APP_VER = VER;
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
@@ -250,6 +250,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
   #page-personal > .card{background:transparent;box-shadow:none;border:none;padding:4px 2px}
   .per-grid{grid-template-columns:1fr}
 }
+/* תזכורת גיבוי מלא */
+.remind{display:flex;align-items:center;gap:10px;background:var(--low-soft);border:1px solid rgba(245,158,11,.35);border-radius:16px;padding:12px 14px;margin-bottom:12px;font-size:14px;color:var(--ink)}
+.remind .txt{flex:1;line-height:1.4}
+.remind .txt small{display:block;color:var(--muted);font-size:12px}
+.remind .x{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px}
 /* פס עדכון גרסה */
 #updateBanner{display:none;position:fixed;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:1000;
   background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;border:none;border-radius:999px;padding:11px 20px;font-family:inherit;font-size:14px;font-weight:700;
@@ -262,7 +267,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 </head>
 <body>
 
-<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v87</span></div></header>
+<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v88</span></div></header>
 
 <div class="mobile-tabs">
   <button class="mobile-tab" id="mtab-dashboard" onclick="showPage('dashboard',this)"><span class="icon">🏠</span>דשבורד</button>
@@ -294,6 +299,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
+  <div id="backupReminder"></div>
   <div class="hero">
   <div class="hero-hello" id="heroHello">שלום 👋</div>
   <div class="hero-title">מה מצב הבית היום?</div>
@@ -590,7 +596,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
       <button class="btn btn-secondary" onclick="manualSync()">🔄 סנכרון ידני</button>
     </div>
     <div id="authInfo" style="font-size:13px;color:#555;margin-top:10px"></div>
-    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v87 | מחסן ביתי</div>
+    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v88 | מחסן ביתי</div>
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1686,6 +1692,7 @@ function renderAll() {
 }
 
 function renderDashboard() {
+  renderBackupReminder();
   const prods = data.products||[];
   const missing = prods.filter(p=>p.quantity<=(p.minQuantity||1));
   const zero = prods.filter(p=>p.quantity<=0);
@@ -2631,8 +2638,29 @@ async function exportFullBackup() {
   try { localStorage.setItem('warehouse_last_export', String(Date.now())); } catch(e) {}
   renderBackups();
   if(btn) btn.disabled = false;
+  data.lastFullBackup = Date.now();   // משותף לכל המכשירים — התזכורת נעלמת אצל כולם
+  save(); renderBackupReminder();
   const n = Object.keys(images).length;
   backupProgress(`✓ גיבוי מלא הורד: הנתונים ו-${n} תמונות` + (failed ? ` (${failed} תמונות לא הורדו)` : ''));
+}
+
+// תזכורת בדף הבית כשעבר חודש מהגיבוי המלא האחרון (אפשר לדחות לשבוע במכשיר הזה)
+const FULL_BACKUP_EVERY = 30*24*60*60*1000;
+function renderBackupReminder() {
+  const el = document.getElementById('backupReminder');
+  if(!el) return;
+  const last = data.lastFullBackup || 0;
+  let snooze = 0; try { snooze = parseInt(localStorage.getItem('warehouse_backup_snooze')) || 0; } catch(e) {}
+  if(!(data.products||[]).length || Date.now() - last < FULL_BACKUP_EVERY || Date.now() < snooze) { el.innerHTML = ''; return; }
+  const when = last ? 'הגיבוי המלא האחרון: ' + new Date(last).toLocaleDateString('he-IL') : 'עוד לא נשמר גיבוי מלא עם תמונות';
+  el.innerHTML = `<div class="remind"><span style="font-size:22px">💾</span>
+    <div class="txt"><b>הגיע הזמן לגיבוי מלא</b><small>${when}</small></div>
+    <button class="btn btn-sm btn-primary" onclick="showPage('settings');exportFullBackup()">גבה עכשיו</button>
+    <button class="x" onclick="snoozeBackupReminder()" aria-label="אחר כך">✕</button></div>`;
+}
+function snoozeBackupReminder() {
+  try { localStorage.setItem('warehouse_backup_snooze', String(Date.now() + 7*24*60*60*1000)); } catch(e) {}
+  renderBackupReminder();
 }
 
 // בודק אם תמונה עדיין זמינה בענן
