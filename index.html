@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '78';
+  var VER = '79';
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
     location.replace(location.pathname + '?_v=' + VER);
@@ -125,7 +125,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
 </div>
 
 <!-- SYNC BAR - גלובלי מעל כל הדפים -->
-<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v78</span></div>
+<div id="syncBar" class="sync-bar synced" style="margin:0;border-radius:0;padding:7px 16px;font-size:13px;font-weight:600;justify-content:center;border-bottom:1px solid rgba(0,0,0,0.08)"><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v79</span></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page">
@@ -444,7 +444,7 @@ tr.shopping-row .badge-zero{color:#e74c3c !important;background:#ffe0e0 !importa
     <div class="form-group">
       <button class="btn btn-secondary" onclick="manualSync()">🔄 סנכרון ידני</button>
     </div>
-    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v78 | מחסן ביתי</div>
+    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v79 | מחסן ביתי</div>
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -786,6 +786,7 @@ function saveLocal() {
     // אם localStorage מלא מנתונים ישנים — שמור ללא base64
     try { localStorage.setItem('warehouse_data', JSON.stringify(mainDataOnly())); } catch(e2) {}
   }
+  try { if(baseJSON) localStorage.setItem('warehouse_base', baseJSON); } catch(e) {}
 }
 
 function setSyncUI(state) {
@@ -796,28 +797,140 @@ function setSyncUI(state) {
   txt.textContent = msgs[state]||state;
 }
 
-async function pushToCloud(payload) {
-  try {
-    const res = await fetch(FIREBASE_URL, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: payload
-    });
-    if(res.ok) return true;
-  } catch(e) {
+// ── מיזוג שינויים בין מכשירים ───────────────────────────────────────────
+// baseJSON = המצב האחרון בענן שהמכשיר הזה ראה. בכל שמירה וסנכרון משווים מה השתנה כאן
+// ומה השתנה בענן מאז, וממזגים פריט-פריט — כך עריכות בו-זמניות משני מכשירים לא דורסות זו את זו.
+const COLLECTIONS = {products:'nextProductId', movements:'nextMovementId', personal:'nextPersonalId', recipes:'nextRecipeId', waContacts:'nextWAContactId'};
+let baseJSON = null;
+try { baseJSON = localStorage.getItem('warehouse_base'); } catch(e) {}
+
+function _byId(arr) {
+  const m = new Map();
+  (arr||[]).forEach(x => { if(x && x.id != null) m.set(String(x.id), x); });
+  return m;
+}
+function _same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+function mergeData(base, local, cloud) {
+  const out = JSON.parse(JSON.stringify(cloud));
+  const productIdMap = {};   // מוצר שנוסף בשני מכשירים עם אותו מספר → מקבל מספר חדש
+  for(const [key, counter] of Object.entries(COLLECTIONS)) {
+    const B = _byId(base[key]), L = _byId(local[key]), C = _byId(cloud[key]);
+    let result = (cloud[key]||[]).slice();
+    // מספרים רגילים בלבד (תנועות ישנות קיבלו Date.now כמספר)
+    const small = [...C.keys(), ...L.keys()].map(Number).filter(n => !isNaN(n) && n < 1e9);
+    let maxId = Math.max(0, ...small, (cloud[counter]||1) - 1, (local[counter]||1) - 1);
+    for(const [id, b] of B) {
+      const l = L.get(id), c = C.get(id);
+      if(!l) { result = result.filter(x => String(x.id) !== id); continue; }   // נמחק כאן
+      if(!_same(l, b)) {                                                       // נערך כאן
+        if(c) result = result.map(x => String(x.id) === id ? l : x);
+        else result.push(l);
+      }
+    }
+    for(const [id, l0] of L) {
+      if(B.has(id)) continue;                                                  // לא חדש
+      let l = l0;
+      if(key === 'movements' && productIdMap[String(l.productId)] !== undefined)
+        l = Object.assign({}, l, {productId: productIdMap[String(l.productId)]});
+      const c = C.get(id);
+      if(!c) { result.push(l); continue; }
+      if(_same(c, l)) continue;
+      const item = Object.assign({}, l, {id: ++maxId});
+      if(key === 'products') productIdMap[id] = item.id;
+      result.push(item);
+    }
+    out[key] = result;
+    out[counter] = Math.max(cloud[counter]||1, local[counter]||1, maxId + 1);
   }
-  return false;
+  for(const k of new Set([...Object.keys(local), ...Object.keys(cloud)])) {
+    if(k in COLLECTIONS || Object.values(COLLECTIONS).includes(k) || k === 'lastModified') continue;
+    if(!_same(local[k], base[k])) out[k] = local[k];
+  }
+  return out;
 }
 
-async function save() {
+// ETag מאפשר לכתוב לענן רק אם אף אחד לא שמר באמצע. אם הדפדפן/השרת לא תומכים — ממשיכים בלעדיו.
+let _etagOK = true;
+async function fetchCloud() {
+  if(_etagOK) {
+    try {
+      const res = await fetch(FIREBASE_URL + '?t=' + Date.now(), {headers: {'X-Firebase-ETag': 'true'}});
+      if(res.ok) return {cloud: parseCloudData(await res.json()), etag: res.headers.get('ETag')};
+    } catch(e) {}
+    _etagOK = false;
+  }
+  const res = await fetch(FIREBASE_URL + '?t=' + Date.now());
+  if(!res.ok) throw new Error('fetch ' + res.status);
+  return {cloud: parseCloudData(await res.json()), etag: null};
+}
+
+async function pushToCloud(payload, etag) {
+  const headers = {'Content-Type': 'application/json'};
+  if(etag && _etagOK) headers['if-match'] = etag;
+  try {
+    const res = await fetch(FIREBASE_URL, {method: 'PUT', headers, body: payload});
+    if(res.status === 412) return 'conflict';
+    return res.ok ? 'ok' : 'error';
+  } catch(e) {
+    if(headers['if-match']) { _etagOK = false; return pushToCloud(payload, null); }
+    return 'error';
+  }
+}
+
+// מאמץ את הגרסה הממוזגת, שומר על תמונות base64 מקומיות, ומרענן מסך רק אם משהו השתנה
+function adoptMerged(merged, newBase) {
+  const imgs = extractImages();
+  const changed = !_same(merged, mainDataOnly());
+  data = JSON.parse(JSON.stringify(merged));
+  applyImages(imgs);
+  baseJSON = newBase;
+  saveLocal();
+  if(changed) renderAll();
+}
+
+let _saveChain = Promise.resolve();
+let _saving = false;
+function save() {
   data.lastModified = Date.now();
   _lastSaveTime = Date.now();
   saveLocal();
+  _saveChain = _saveChain.then(_doSave, _doSave);
+  return _saveChain;
+}
+
+async function _doSave() {
+  _saving = true;
   setSyncUI('syncing');
-  const payload = JSON.stringify(mainDataOnly());
-  const ok = await pushToCloud(payload);
-  if(ok) { lastSyncHash = payload; setSyncUI('synced'); }
-  else { setSyncUI(navigator.onLine ? 'error' : 'offline'); }
+  const base0 = baseJSON;
+  try {
+    for(let attempt = 0; attempt < 4; attempt++) {
+      let cloud, etag;
+      try { ({cloud, etag} = await fetchCloud()); } catch(e) { break; }
+      const local = mainDataOnly();
+      const merged = (cloud && base0) ? mergeData(JSON.parse(base0), local, cloud) : local;
+      merged.lastModified = Date.now();
+      const payload = JSON.stringify(merged);
+      const r = await pushToCloud(payload, etag);
+      if(r === 'conflict') continue;            // מישהו שמר באמצע — ממזגים שוב
+      if(r !== 'ok') break;
+      if(!etag) {
+        // בלי ETag אין הגנה מלאה מכתיבה בו-זמנית — בודקים שהשמירה שלנו לא נדרסה, ואם כן ממזגים שוב
+        await new Promise(r => setTimeout(r, 800));
+        try {
+          const {cloud: after} = await fetchCloud();
+          if(after && JSON.stringify(after) !== payload && attempt < 3) continue;
+        } catch(e) {}
+      }
+      adoptMerged(merged, payload);
+      lastSyncHash = payload;
+      setSyncUI('synced');
+      return;
+    }
+    setSyncUI(navigator.onLine ? 'error' : 'offline');
+  } finally {
+    _saving = false;
+  }
 }
 
 function parseCloudData(cloud) {
@@ -832,28 +945,30 @@ async function load() {
   const localImgs = await ImageStore.loadAll().catch(()=>({}));
   if(Object.keys(localImgs).length > 0) applyImages(localImgs);
   try {
-    const res = await fetch(FIREBASE_URL + '?t=' + Date.now());
-    const cloud = await res.json();
-    const cd = parseCloudData(cloud);
-    if(cd) {
+    const {cloud: cd} = await fetchCloud();
+    if(cd && baseJSON) {
+      // יש בסיס ידוע — ממזגים שינויים מקומיים (גם כאלה שנעשו אופליין) עם מה שבענן
+      const local = mainDataOnly();
+      const localChanged = !_same(local, JSON.parse(baseJSON));
+      adoptMerged(mergeData(JSON.parse(baseJSON), local, cd), JSON.stringify(cd));
+      if(localChanged) await save();
+    } else if(cd) {
+      // הפעלה ראשונה של מנגנון המיזוג — ההחלטה לפי זמן עדכון, כמו קודם
       const cloudTime = cd.lastModified || 0;
       const localTime = data.lastModified || 0;
       const localEmpty = (data.products || []).length === 0;
       const cloudHasData = (cd.products || []).length > 0;
-      if(cloudTime > localTime || (localEmpty && cloudHasData)) {
-        data = cd; applyImages(localImgs); saveLocal();
-        lastSyncHash = JSON.stringify(mainDataOnly());
-      } else if(localTime > cloudTime) {
+      if(cloudTime >= localTime || (localEmpty && cloudHasData)) {
+        adoptMerged(cd, JSON.stringify(cd));
+      } else {
         const p = JSON.stringify(mainDataOnly());
-        const ok = await pushToCloud(p);
-        if(ok) lastSyncHash = p;
+        if(await pushToCloud(p, null) === 'ok') { baseJSON = p; lastSyncHash = p; saveLocal(); }
       }
     } else {
       const localHasData = (data.products || []).length > 0;
       if(localHasData) {
         const p = JSON.stringify(mainDataOnly());
-        const ok = await pushToCloud(p);
-        if(ok) lastSyncHash = p;
+        if(await pushToCloud(p, null) === 'ok') { baseJSON = p; lastSyncHash = p; saveLocal(); }
       }
     }
     setSyncUI('synced');
@@ -875,35 +990,36 @@ async function load() {
 }
 
 async function pollCloud() {
-  if(Date.now() - _lastSaveTime < 20000) return;
+  if(_saving) return;
   try {
-    const res = await fetch(FIREBASE_URL + '?t=' + Date.now());
-    const cloud = await res.json();
-    const cd = parseCloudData(cloud);
+    const {cloud: cd} = await fetchCloud();
+    if(_saving) return;
     if(cd) {
-      const cloudTime = cd.lastModified || 0;
-      const localTime = data.lastModified || 0;
-      if(cloudTime > localTime) {
-        const localImgs = extractImages();
-        data = cd; applyImages(localImgs); saveLocal();
-        lastSyncHash = JSON.stringify(mainDataOnly());
-        renderAll();
+      const cj = JSON.stringify(cd);
+      if(cj !== baseJSON) {
+        const local = mainDataOnly();
+        const localChanged = baseJSON && !_same(local, JSON.parse(baseJSON));
+        const merged = baseJSON ? mergeData(JSON.parse(baseJSON), local, cd) : cd;
+        adoptMerged(merged, cj);
+        lastSyncHash = cj;
+        if(localChanged) save();   // שינויים מקומיים שעוד לא עלו לענן
       }
     }
     setSyncUI('synced');
   } catch(e){ setSyncUI(navigator.onLine ? 'error' : 'offline'); }
 }
 
+let _visHooked = false;
 function startPolling() {
   if(pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(pollCloud, 15000);
-  // סנכרון מיידי כשחוזרים לאפליקציה (מסך נדלק, חזרה מטאב אחר)
-  document.addEventListener('visibilitychange', function() {
-    if(document.visibilityState === 'visible') {
-      _lastSaveTime = 0; // מאפשר polling מיידי
-      pollCloud();
-    }
-  });
+  // סנכרון מיידי כשחוזרים לאפליקציה (מסך נדלק, חזרה מטאב אחר) — נרשם פעם אחת בלבד
+  if(!_visHooked) {
+    _visHooked = true;
+    document.addEventListener('visibilitychange', function() {
+      if(document.visibilityState === 'visible') pollCloud();
+    });
+  }
 }
 
 function manualSync() { load(); }
