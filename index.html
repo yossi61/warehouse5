@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '98';
+  var VER = '99';
   window.APP_VER = VER;
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
@@ -221,6 +221,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 .qty-ok:active{transform:scale(.92)}
 .stepper .q{min-width:34px;text-align:center;font-weight:800;font-size:16px;color:var(--ink)}
 .cart-btn{width:38px;height:38px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.cart-btn.off{opacity:.3;filter:grayscale(1)}
 .cart-btn.on{background:var(--brand);border-color:var(--brand);box-shadow:0 4px 10px rgba(79,70,229,.3)}
 .empty-state{text-align:center;color:var(--muted);padding:40px 10px;font-size:14px}
 .empty-state .big{font-size:42px;margin-bottom:8px}
@@ -282,7 +283,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 </head>
 <body>
 
-<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v98</span></div></header>
+<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v99</span></div></header>
 
 <div class="mobile-tabs">
   <button class="mobile-tab" id="mtab-dashboard" onclick="showPage('dashboard',this)"><span class="icon">🏠</span>דשבורד</button>
@@ -591,6 +592,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
         <button class="btn btn-success" onclick="quickBuy()" style="flex:1">✓ עדכן קנייה</button>
       </div>
     </div>
+    <div id="qaShopSection">
     <hr style="border-color:#eee;margin:12px 0">
     <div style="margin-bottom:12px">
       <label style="font-weight:600;font-size:14px;display:block;margin-bottom:6px">📋 סמן לקנייה:</label>
@@ -598,6 +600,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
         <input type="number" id="qaShopQty" min="1" value="1" style="width:80px;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:16px;text-align:center">
         <button class="btn" onclick="quickMarkShopping()" style="flex:1;background:#f39c12;color:#fff">🛒 סמן לקנייה ✓</button>
       </div>
+    </div>
     </div>
     <hr style="border-color:#eee;margin:12px 0">
     <button class="btn" onclick="quickEdit()" style="width:100%;background:#f0f4f8;color:#2c3e50">✏️ עריכה מלאה</button>
@@ -612,7 +615,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
       <button class="btn btn-secondary" onclick="manualSync()">🔄 סנכרון ידני</button>
     </div>
     <div id="authInfo" style="font-size:13px;color:#555;margin-top:10px"></div>
-    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v98 | מחסן ביתי</div>
+    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v99 | מחסן ביתי</div>
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1866,6 +1869,7 @@ function openQuickAction(id) {
   document.getElementById('qaProductName').textContent = p.name;
   document.getElementById('qaCurrentQty').textContent = p.quantity;
   document.getElementById('qaBuyQty').value = 1;
+  document.getElementById('qaShopSection').style.display = (p.quantity||0) > 0 ? 'none' : '';
   document.getElementById('quickActionModal').style.display = 'flex';
 }
 
@@ -1889,7 +1893,7 @@ function quickBuy() {
 
 function quickMarkShopping() {
   const p = (data.products||[]).find(x=>x.id===_qaProductId);
-  if(!p) return;
+  if(!p || (p.quantity||0) > 0) return;
   const qty = parseFloat(document.getElementById('qaShopQty').value)||1;
   p.shopping = true;
   p.shopQty = qty;
@@ -1965,7 +1969,7 @@ function renderProductCards(prods) {
         <button onclick="adjustQty(${p.id},1)" aria-label="הוסף">+</button>
       </div>
       ${pend ? `<button class="qty-ok" onclick="confirmQty(${p.id})" aria-label="אישור">✓</button>` : ''}
-      <button class="cart-btn${p.shopping?' on':''}" onclick="toggleShopping(${p.id},${!p.shopping})" aria-label="רשימת קניות">🛒</button>
+      <button class="cart-btn${p.shopping?' on':''}${!p.shopping && (p.quantity||0) > 0 ? ' off' : ''}" onclick="toggleShopping(${p.id},${!p.shopping})" aria-label="רשימת קניות">🛒</button>
     </div>`;
   };
   // מקובצים לפי קטגוריה (לפי סדר הא"ב), ובתוך כל קטגוריה לפי המיון הנוכחי
@@ -2427,14 +2431,18 @@ function updateShopQtyStep() {
   if(step === 1) input.value = Math.round(parseFloat(input.value)||1);
 }
 
+// v99: אפשר לסמן לקנייה רק כשהמלאי 0. ביטול סימון מסיר מהרשימה מיד, בלי חלון נוסף
 function toggleShopping(id, checked) {
   const p = data.products.find(x=>x.id===id);
   if(!p) return;
   if(!checked) {
-    // ביטול סימון — פותחים חלון לעדכון כמות מלאי
-    openUpdateStockModal(id);
+    p.shopping = false;
+    save(); renderProducts(); renderDashboard();
+    showToast('הוסר מרשימת הקניות');
+  } else if((p.quantity||0) > 0) {
+    renderProducts();
+    showToast('אפשר להוסיף לקניות רק כשהמלאי 0');
   } else {
-    // סימון — פותחים חלון להזנת כמות לקנייה
     openShoppingQtyModal(id);
   }
 }
