@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '104';
+  var VER = '105';
   window.APP_VER = VER;
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
@@ -299,6 +299,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 .mamt.out{background:var(--out-soft);color:#b91c1c}
 .mamt.adj{background:var(--low-soft);color:#b45309}
 @media (max-width:768px){ #page-movements > .card{background:transparent;box-shadow:none;border:none;padding:4px 2px} }
+/* דף בית לחיץ (v105) */
+.stat-card.tap{cursor:pointer;transition:transform .12s,background .2s}
+.stat-card.tap:active{transform:scale(.95)}
+.stat-card.tap:hover{background:rgba(255,255,255,.22)}
 /* תזכורת גיבוי מלא */
 .remind{display:flex;align-items:center;gap:10px;background:var(--low-soft);border:1px solid rgba(245,158,11,.35);border-radius:16px;padding:12px 14px;margin-bottom:12px;font-size:14px;color:var(--ink)}
 .remind .txt{flex:1;line-height:1.4}
@@ -316,7 +320,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 </head>
 <body>
 
-<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v104</span></div></header>
+<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v105</span></div></header>
 
 <div class="mobile-tabs">
   <button class="mobile-tab" id="mtab-dashboard" onclick="showPage('dashboard',this)"><span class="icon">🏠</span>דשבורד</button>
@@ -355,10 +359,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
   <div class="hero-hello" id="heroHello">שלום 👋</div>
   <div class="hero-title">מה מצב הבית היום?</div>
   <div class="stat-grid">
-    <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">סה"כ מוצרים</div></div>
-    <div class="stat-card"><div class="stat-num" id="stat-low" style="color:#e74c3c">0</div><div class="stat-label">מלאי נמוך</div></div>
-    <div class="stat-card"><div class="stat-num" id="stat-zero" style="color:#888">0</div><div class="stat-label">חסר במלאי</div></div>
-    <div class="stat-card"><div class="stat-num" id="stat-val" style="color:#27ae60">0</div><div class="stat-label">ערך מלאי ₪</div></div>
+    <div class="stat-card tap" onclick="goProducts('')"><div class="stat-num" id="stat-total">0</div><div class="stat-label">סה"כ מוצרים ‹</div></div>
+    <div class="stat-card tap" onclick="goProducts('low')"><div class="stat-num" id="stat-low" style="color:#e74c3c">0</div><div class="stat-label">מלאי נמוך ‹</div></div>
+    <div class="stat-card tap" onclick="goProducts('missing')"><div class="stat-num" id="stat-zero" style="color:#888">0</div><div class="stat-label">חסר במלאי ‹</div></div>
+    <div class="stat-card tap" onclick="showPage('shopping')"><div class="stat-num" id="stat-shop">0</div><div class="stat-label">🛒 לקנות ‹</div></div>
   </div>
   </div>
   <div class="section-title">קטגוריות</div>
@@ -381,6 +385,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
         <option value="">הכל</option>
         <option value="shopping">לקנייה ✓</option>
         <option value="missing">חסרים (מלאי 0)</option>
+        <option value="low">מלאי נמוך</option>
       </select>
       <button class="btn btn-sm btn-danger" onclick="clearShoppingList()" title="נקה רשימת קניות">🗑️ נקה</button>
     </div>
@@ -661,7 +666,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
       <button class="btn btn-secondary" onclick="manualSync()">🔄 סנכרון ידני</button>
     </div>
     <div id="authInfo" style="font-size:13px;color:#555;margin-top:10px"></div>
-    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v104 | מחסן ביתי</div>
+    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v105 | מחסן ביתי</div>
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1891,7 +1896,8 @@ function renderDashboard() {
   document.getElementById('stat-total').textContent = prods.length;
   document.getElementById('stat-low').textContent = missing.length;
   document.getElementById('stat-zero').textContent = zero.length;
-  document.getElementById('stat-val').textContent = val.toFixed(0);
+  const sv = document.getElementById('stat-val'); if(sv) sv.textContent = val.toFixed(0);
+  const ss = document.getElementById('stat-shop'); if(ss) ss.textContent = prods.filter(p=>p.shopping).length;
   const h = new Date().getHours();
   const hello = h < 5 ? 'לילה טוב 🌙' : h < 12 ? 'בוקר טוב ☀️' : h < 17 ? 'צהריים טובים 🌤️' : h < 21 ? 'ערב טוב 🌇' : 'לילה טוב 🌙';
   const who = (typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) ? ', ' + currentUser.displayName.split(' ')[0] : '';
@@ -2108,6 +2114,15 @@ function deleteFromEdit() {
 }
 
 // ── מסך רשימת קניות: רק מה שצריך לקנות, לפי קטגוריה. −/+ = כמה לקנות, "✓ קניתי" = נוסף למלאי ──
+// לחיצה על כרטיס בדף הבית ← דף המוצרים עם הסינון המתאים (v105)
+function goProducts(filter) {
+  selectedCats.clear();
+  const s = document.getElementById('prodSearch'); if(s) { s.value = ''; s.dispatchEvent(new Event('input')); }
+  const f = document.getElementById('prodShopFilter'); if(f) f.value = filter;
+  showPage('products');
+  populateCatFilter();
+}
+
 function renderShopping() {
   const list = (data.products||[]).filter(p => p.shopping);
   const n = list.length;
@@ -2154,7 +2169,7 @@ function renderProducts() {
   let prods = (data.products||[]).filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search) || (p.category||'').toLowerCase().includes(search);
     const matchCat = selectedCats.size === 0 || selectedCats.has(p.category);
-    const matchShop = !shopF || (shopF==='shopping' && p.shopping) || (shopF==='missing' && (p.quantity||0) <= 0);
+    const matchShop = !shopF || (shopF==='shopping' && p.shopping) || (shopF==='missing' && (p.quantity||0) <= 0) || (shopF==='low' && stockStatus(p).cls !== 'badge-ok');
     return matchSearch && matchCat && matchShop;
   });
   prods.sort((a,b)=>{
