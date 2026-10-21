@@ -8,7 +8,7 @@
 <script>
 // כפה טעינה חדשה בכל גרסה — מונע cache של GitHub Pages
 (function(){
-  var VER = '100';
+  var VER = '101';
   window.APP_VER = VER;
   var p = location.search;
   if(p.indexOf('_v='+VER) === -1) {
@@ -221,6 +221,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 .qty-ok:active{transform:scale(.92)}
 .stepper .q{min-width:34px;text-align:center;font-weight:800;font-size:16px;color:var(--ink)}
 .cart-btn{width:38px;height:38px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.stepper.buy{background:var(--low-soft);box-shadow:inset 0 0 0 1.5px rgba(245,158,11,.5)}
+.stepper.buy button{color:#b45309}
+.stepper.buy .q{color:#92400e;display:flex;flex-direction:column;align-items:center;line-height:1.05}
+.stepper.buy .q small{font-size:10px;font-weight:700;opacity:.8}
 .cart-btn.off{opacity:.3;filter:grayscale(1)}
 .cart-btn.on{background:var(--brand);border-color:var(--brand);box-shadow:0 4px 10px rgba(79,70,229,.3)}
 .empty-state{text-align:center;color:var(--muted);padding:40px 10px;font-size:14px}
@@ -283,7 +287,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 </head>
 <body>
 
-<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v100</span></div></header>
+<header class="app-header"><div class="app-title"><span class="logo">🏠</span>ניהול בית</div><div id="syncBar" class="sync-bar synced" ><span class="sync-dot"></span><span id="syncText">מסונכרן ✓</span><span style="margin-right:12px;font-size:11px;opacity:0.5">v101</span></div></header>
 
 <div class="mobile-tabs">
   <button class="mobile-tab" id="mtab-dashboard" onclick="showPage('dashboard',this)"><span class="icon">🏠</span>דשבורד</button>
@@ -616,7 +620,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
       <button class="btn btn-secondary" onclick="manualSync()">🔄 סנכרון ידני</button>
     </div>
     <div id="authInfo" style="font-size:13px;color:#555;margin-top:10px"></div>
-    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v100 | מחסן ביתי</div>
+    <div style="margin-top:16px;font-size:12px;color:#aaa">גרסה v101 | מחסן ביתי</div>
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1158,7 +1162,10 @@ async function _doSave() {
           if(after && JSON.stringify(after) !== payload && attempt < 3) continue;
         } catch(e) {}
       }
-      adoptMerged(merged, payload);
+      // שינויים שנעשו במכשיר בזמן שהשמירה רצה (למשל כמה לחיצות + מהירות) — לא לדרוס אותם.
+      // ממזגים אותם מעל מה שנשמר; השמירה הבאה בתור תעלה אותם (תוקן ב-v101)
+      const now = mainDataOnly();
+      adoptMerged(_same(now, local) ? merged : mergeData(local, now, merged), payload);
       lastSyncHash = payload;
       setSyncUI('synced');
       return;
@@ -1956,22 +1963,27 @@ function renderProductCards(prods) {
   if(!prods.length) { el.innerHTML = '<div class="empty-state"><div class="big">🧺</div>אין מוצרים להצגה</div>'; return; }
   const card = p => {
     const st = stockStatus(p);
-    const pend = _pendingQty[p.id] !== undefined;
+    const buy = !!p.shopping;   // מצב קנייה: −/+ קובעים כמה לקנות, הסל = "קניתי"
+    const pend = !buy && _pendingQty[p.id] !== undefined;
     const thumb = p.image ? `<img src="${thumbUrl(p.image)}" loading="lazy" onclick="event.stopPropagation();openLightbox('${p.id}','product')">` : catEmoji(p.category);
-    const shopTag = p.shopping ? `<span class="shop-tag">🛒 ${p.shopQty||1} ${escHtml(p.shopUnit||"יח'")}</span>` : '';
+    const shopTag = buy ? `<span class="shop-tag">🛒 לקנות</span>` : '';
     return `<div class="pcard${p.shopping?' shopping':''}" id="pcard-${p.id}">
       <div class="thumb">${thumb}</div>
       <div class="info" onclick="openEditProduct(${p.id})">
         <div class="pname">${escHtml(p.name)}</div>
         <div class="meta"><span class="badge ${st.cls}">${st.label}</span>${shopTag}</div>
       </div>
-      <div class="stepper">
+      ${buy ? `<div class="stepper buy" title="כמה לקנות">
+        <button onclick="adjustShopQty(${p.id},-1)" aria-label="פחות לקנייה">−</button>
+        <span class="q" id="pq-${p.id}">${shopQtyOf(p)}<small>${escHtml(p.shopUnit||"יח'")}</small></span>
+        <button onclick="adjustShopQty(${p.id},1)" aria-label="יותר לקנייה">+</button>
+      </div>` : `<div class="stepper">
         <button onclick="adjustQty(${p.id},-1)" aria-label="הפחת">−</button>
         <span class="q${pend?' pending':''}" id="pq-${p.id}">${pend ? _pendingQty[p.id] : (p.quantity||0)}</span>
         <button onclick="adjustQty(${p.id},1)" aria-label="הוסף">+</button>
-      </div>
+      </div>`}
       ${pend ? `<button class="qty-ok" onclick="confirmQty(${p.id})" aria-label="אישור">✓</button>` : ''}
-      <button class="cart-btn${p.shopping?' on':''}${!p.shopping && (p.quantity||0) > 0 ? ' off' : ''}" onclick="toggleShopping(${p.id},${!p.shopping})" aria-label="רשימת קניות">🛒</button>
+      <button class="cart-btn${buy?' on':''}${!buy && (p.quantity||0) > 0 ? ' off' : ''}" onclick="${buy ? `completePurchase(${p.id})` : `toggleShopping(${p.id},true)`}" aria-label="${buy?'קניתי':'הוסף לקניות'}">🛒</button>
     </div>`;
   };
   // מקובצים לפי קטגוריה (לפי סדר הא"ב), ובתוך כל קטגוריה לפי המיון הנוכחי
@@ -2300,7 +2312,7 @@ function saveProduct() {
 let _waEncodedMsg = '';
 
 function sendToWhatsApp() {
-  const shopping = (data.products||[]).filter(p=>p.shopping);
+  const shopping = (data.products||[]).filter(p=>p.shopping && shopQtyOf(p) > 0);
   if(!shopping.length){ alert('אין מוצרים ברשימת הקניות'); return; }
 
   const byCategory = {};
@@ -2311,7 +2323,7 @@ function sendToWhatsApp() {
   });
 
   const sections = Object.keys(byCategory).sort((a,b) => a.localeCompare(b,'he')).map(cat => {
-    const items = byCategory[cat].map(p => `• ${p.name} - ${p.shopQty||1} ${p.shopUnit||"יח'"}`).join('\n');
+    const items = byCategory[cat].map(p => `• ${p.name} - ${shopQtyOf(p)} ${p.shopUnit||"יח'"}`).join('\n');
     return `📂 ${cat}:\n${items}`;
   });
 
@@ -2436,20 +2448,55 @@ function updateShopQtyStep() {
   if(step === 1) input.value = Math.round(parseFloat(input.value)||1);
 }
 
-// v99: אפשר לסמן לקנייה רק כשהמלאי 0. ביטול סימון מסיר מהרשימה מיד, בלי חלון נוסף
+// v99: אפשר לסמן לקנייה רק כשהמלאי 0.
+// v101: לחיצה על הסל (מלאי 0) מעבירה את המוצר ל"מצב קנייה" בלי חלון: −/+ קובעים כמה לקנות,
+// ולחיצה נוספת על הסל = "קניתי" — הכמות נוספת למלאי ונרשמת תנועה. כמות 0 + סל = ביטול בלי שינוי מלאי.
+function shopQtyOf(p) { return p.shopQty === undefined || p.shopQty === null ? 1 : p.shopQty; }
+
 function toggleShopping(id, checked) {
   const p = data.products.find(x=>x.id===id);
   if(!p) return;
-  if(!checked) {
-    p.shopping = false;
-    save(); renderProducts(); renderDashboard();
-    showToast('הוסר מרשימת הקניות');
-  } else if((p.quantity||0) > 0) {
+  if(!checked) { completePurchase(id); return; }
+  if((p.quantity||0) > 0) {
     renderProducts();
     showToast('אפשר להוסיף לקניות רק כשהמלאי 0');
-  } else {
-    openShoppingQtyModal(id);
+    return;
   }
+  delete _pendingQty[id];
+  p.shopping = true;
+  p.shopQty = 1;
+  p.shopUnit = p.shopUnit || UNIT_MAP[p.category] || "יח'";
+  save(); renderProducts(); renderDashboard();
+  showToast('🛒 נוסף לקניות — בחרו כמות');
+}
+
+function adjustShopQty(id, dir) {
+  const p = data.products.find(x=>x.id===id);
+  if(!p || !p.shopping) return;
+  const step = getStepForUnit(p.shopUnit || "יח'");
+  const next = Math.max(0, Math.round((shopQtyOf(p) + dir*step)*1000)/1000);
+  if(next === shopQtyOf(p)) return;
+  p.shopQty = next;
+  renderProducts();
+  const q = document.getElementById('pq-'+id);
+  if(q) { q.classList.remove('bump'); void q.offsetWidth; q.classList.add('bump'); }
+  save();
+}
+
+function completePurchase(id) {
+  const p = data.products.find(x=>x.id===id);
+  if(!p) return;
+  const q = p.shopping ? shopQtyOf(p) : 0;
+  p.shopping = false;
+  if(q > 0) {
+    p.quantity = Math.round(((p.quantity||0) + q)*1000)/1000;
+    if(!data.movements) data.movements = [];
+    data.movements.push({id: data.nextMovementId++, productId: id, type: 'in', quantity: q, note: 'קנייה', date: new Date().toLocaleDateString('he-IL')});
+    showToast(`✓ נקנו ${q} ${p.shopUnit||"יח'"} — המלאי עודכן`);
+  } else {
+    showToast('הוסר מרשימת הקניות');
+  }
+  save(); renderProducts(); renderDashboard();
 }
 
 function openUpdateStockModal(id) {
